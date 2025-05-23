@@ -1,37 +1,16 @@
-## 🧪 Demo 1 – Chatbot Financiero IBEX 35 (versión inicial)
+🔄 CAMBIOS REALIZADOS DEL MAIN A LA DEMO_1
 
-Esta demo muestra la **primera versión funcional** del chatbot financiero centrado en empresas del IBEX 35, combinando procesamiento de lenguaje natural con acceso a datos reales mediante `yfinance`.
+✅ Consulta real con yfinance
+A diferencia de la Demo 1, en esta versión ya conecto con yfinance para calcular el precio medio real de una acción del IBEX 35 entre dos fechas.
 
-### 🎯 ¿Qué hace esta demo?
+🧠 Extracción precisa con LLM
+He corregido y afinado el prompt del modelo (PROMPT_API_EXTRAER) para que devuelva correctamente un JSON limpio con la empresa y el rango de fechas.
 
-- Permite al usuario **hacer preguntas por consola** relacionadas con:
-  - 📈 Cotizaciones históricas de acciones.
-  - 📊 Simulación de análisis de series temporales.
-  - 📑 Simulación de extracción de información de informes financieros.
+🔧 Parser robusto
+He mejorado la función extract_json para que pueda autocorregir errores menores del modelo (como una llave de cierre faltante), haciendo más estable el flujo.
 
-- Utiliza un flujo modular con **LangGraph**, que:
-  1. Clasifica automáticamente la intención de la pregunta (`series_temporales`, `documentos_financieros`, o `consulta_api`).
-  2. Redirige la consulta al módulo correspondiente:
-     - `yfinance` para obtener el precio medio de una acción entre fechas.
-     - Un modelo LLM de Groq (Mixtral) para simular respuestas sobre tendencias o informes.
-  3. Devuelve una respuesta estructurada indicando la **fuente utilizada** (`api`, `documentos`, `series_temporales`).
+🌐 Interfaz en Streamlit
+He reemplazado la consola por una interfaz gráfica web usando Streamlit, lo que hace que la demo sea más usable y presentable.
 
-### ⚙️ Componentes clave
-
-- **`app.py`**: Interfaz principal por consola.
-- **`main_graph.py`**: Define el grafo conversacional y nodos de procesamiento.
-- **`cotizaciones.py`**: Funciones para consultar datos financieros reales con `yfinance`.
-- **`prompts.py`**: Contiene los prompts utilizados para cada tipo de pregunta.
-- **`test_yfinance.py`**: Verificación manual de la descarga de precios históricos desde Yahoo Finance.
-
-### 🧠 Lógica de clasificación (ejemplos):
-
-| Pregunta | Clasificación automática | Acción |
-|---------|--------------------------|--------|
-| ¿Cuál fue el precio medio de Repsol en marzo? | `consulta_api` | Consulta real con `yfinance` |
-| ¿Cómo ha evolucionado Telefónica en el último año? | `series_temporales` | Simulación con LLM |
-| ¿Qué dice el informe anual de BBVA sobre beneficios? | `documentos_financieros` | Simulación con LLM |
-
----
-
-Esta demo sirve como **base para futuras versiones** donde se integrarán análisis más avanzados y documentos reales con Quadrant.
+🚀 Actualización del modelo LLM
+Sustituí el modelo mixtral, que ya no está disponible, por llama3-8b-8192 a través de la API de Groq, que es más moderno y eficiente.

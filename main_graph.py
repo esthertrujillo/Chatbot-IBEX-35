@@ -23,7 +23,7 @@ load_dotenv()  # Carga las variables de entorno desde .env
 
 llm = ChatGroq(
     groq_api_key=os.getenv("GROQ_API_KEY"),
-    model_name="mixtral-8x7b-32768",
+    model_name="llama3-8b-8192",  # ✅ nuevo modelo recomendado
     temperature=0.0
 )
 
@@ -33,10 +33,17 @@ llm = ChatGroq(
 
 def extract_json(text: str) -> dict:
     try:
-        json_text = re.search(r"\{.*\}", text, re.DOTALL).group()
-        return json.loads(json_text)
+        # Limpieza previa
+        text = text.strip()
+
+        # Si falta la llave de cierre, intenta agregarla (corrección rápida)
+        if text.startswith("{") and not text.endswith("}"):
+            text += "}"
+
+        # Intentar parsear directamente
+        return json.loads(text)
     except Exception as e:
-        raise ValueError(f"Error al extraer JSON: {e}\nTexto recibido:\n{text}")
+        raise ValueError(f"❌ Error al extraer JSON: {e}\nTexto recibido:\n{text}")
 
 # ---------------------------------------------------------
 # 3. Definición del estado del chatbot
@@ -100,23 +107,44 @@ def extraer_documento_financiero(state: ChatbotState) -> ChatbotState:
 # 8. Nodo: Llama a yfinance después de extraer datos con el LLM
 # ---------------------------------------------------------
 
+
 def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     pregunta = state["input"]
 
     # Paso 1: extraer parámetros con el LLM
     extraction_prompt = PROMPT_API_EXTRAER.format(pregunta=pregunta)
     response = llm.invoke(extraction_prompt)
-    data = extract_json(response.content)
+
+    llm_response_content = response.content.strip()
+
+    print(f"🔍 DEBUG - Respuesta bruta del LLM (strippeada): '{llm_response_content}'")
+    print(f"🔍 DEBUG - Tipo de respuesta bruta: {type(llm_response_content)}")
+
+    # AÑADE ESTA LÍNEA TEMPORALMENTE PARA VER EL CONTENIDO DIRECTO
+    print(f"🔍 DEBUG - Contenido que se pasa a extract_json: '{llm_response_content}'")
+
+    try:
+        data = extract_json(llm_response_content)
+    except Exception as e:
+        return {
+            **state,
+            "respuesta": f"❌ No se pudo extraer un JSON válido de la respuesta del LLM. Error: {str(e)}\nRespuesta del LLM (final): '{llm_response_content}'",
+            "fuente": "api"
+        }
 
     empresa = data.get("empresa")
     fecha_inicio = data.get("fecha_inicio")
     fecha_fin = data.get("fecha_fin")
 
     if not all([empresa, fecha_inicio, fecha_fin]):
-        return {**state, "respuesta": "No se pudieron extraer los parámetros necesarios para consultar los datos.", "fuente": "api"}
+        return {
+            **state,
+            "respuesta": "❌ No se pudieron extraer los parámetros necesarios para consultar los datos.",
+            "fuente": "api"
+        }
 
-    # Paso 2: consultar yfinance
     resultado = construir_respuesta_yfinance(empresa, fecha_inicio, fecha_fin)
+
     return {
         **state,
         "respuesta": resultado["respuesta"],
@@ -129,25 +157,26 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
 # ---------------------------------------------------------
 # 9. Construcción del grafo LangGraph
 # ---------------------------------------------------------
-
 def build_graph():
     graph = StateGraph(ChatbotState)
 
+    # Nodos válidos (todos devuelven un dict)
     graph.add_node("clasificar", RunnableLambda(clasificar_intencion))
-    graph.add_node("seleccionar_fuente", RunnableLambda(seleccionar_fuente))
     graph.add_node("series_temporales", RunnableLambda(analizar_series_temporales))
     graph.add_node("documentos_financieros", RunnableLambda(extraer_documento_financiero))
     graph.add_node("consulta_api", RunnableLambda(consultar_api_financiera))
 
+    # Punto de entrada
     graph.set_entry_point("clasificar")
-    graph.add_edge("clasificar", "seleccionar_fuente")
 
-    graph.add_conditional_edges("seleccionar_fuente", seleccionar_fuente, {
+    # Enrutamiento condicional desde el nodo 'clasificar'
+    graph.add_conditional_edges("clasificar", seleccionar_fuente, {
         "series_temporales": "series_temporales",
         "documentos_financieros": "documentos_financieros",
         "consulta_api": "consulta_api"
     })
 
+    # Todos los nodos terminales
     graph.add_edge("series_temporales", END)
     graph.add_edge("documentos_financieros", END)
     graph.add_edge("consulta_api", END)

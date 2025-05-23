@@ -7,9 +7,9 @@ Pregunta del usuario:
 {pregunta}
 
 Devuelve tu respuesta en formato JSON con la clave "respuesta", por ejemplo:
-{{
+{
   "respuesta": "La acción de Iberdrola ha tenido una tendencia alcista en el último año, con un incremento acumulado del 8%. La volatilidad se ha mantenido estable respecto al año anterior."
-}}
+}
 """
 
 PROMPT_DOCUMENTOS = """
@@ -21,9 +21,9 @@ Pregunta del usuario:
 {pregunta}
 
 Devuelve la respuesta en formato JSON con la clave "respuesta", por ejemplo:
-{{
+{
   "respuesta": "Según el informe anual 2023, Telefónica incrementó su beneficio neto un 15% respecto al año anterior, destacando el crecimiento en Brasil y Alemania."
-}}
+}
 """
 
 PROMPT_API = """
@@ -35,18 +35,26 @@ Pregunta del usuario:
 {pregunta}
 
 Devuelve la respuesta en formato JSON con la clave "respuesta", por ejemplo:
-{{
+{
   "respuesta": "El precio actual de las acciones de Banco Santander es 3,92€, con una variación diaria de +0,85%."
-}}
+}
 """
 PROMPT_API_EXTRAER = """
-Extrae los siguientes elementos de esta pregunta sobre precios bursátiles:
+Extrae los siguientes datos de la pregunta sobre precios de acciones del IBEX 35:
 
-- empresa (nombre de la empresa del IBEX 35)
-- fecha_inicio (en formato YYYY-MM-DD)
-- fecha_fin (en formato YYYY-MM-DD)
+- empresa (en minúsculas)
+- fecha_inicio (YYYY-MM-DD)
+- fecha_fin (YYYY-MM-DD)
 
-Devuelve un JSON con estas claves: empresa, fecha_inicio, fecha_fin.
+Responde **EXCLUSIVAMENTE** en formato JSON, sin explicaciones, texto adicional o puntuación extra.
+La respuesta debe ser **SOLAMENTE** el objeto JSON.
+
+Ejemplo de formato de respuesta:
+{{
+  "empresa": "iberdrola",
+  "fecha_inicio": "2023-03-01",
+  "fecha_fin": "2023-03-30"
+}}
 
 Pregunta:
 {pregunta}

@@ -11,15 +11,23 @@ def main():
     grafo = build_graph()
 
     while True:
-        pregunta = input("🧑 Tú: ")
-        if pregunta.lower() in ["salir", "exit", "quit"]:
-            print("👋 Hasta la próxima.")
-            break
-
         try:
+            pregunta = input("🧑 Tú: ").strip()
+            if not pregunta:
+                print("⚠️ Por favor, escribe una pregunta.")
+                continue
+
+            if pregunta.lower() in ["salir", "exit", "quit"]:
+                print("👋 Hasta la próxima.")
+                break
+
             # Ejecutar el flujo LangGraph
             result = grafo.invoke({"input": pregunta})
-            print(f"🤖 Bot ({result['fuente']}): {result['respuesta']}\n")
+            print(f"🤖 Bot ({result.get('fuente', 'desconocido')}): {result.get('respuesta', 'Sin respuesta generada.')}\n")
+
+        except KeyboardInterrupt:
+            print("\n👋 Interrumpido por el usuario. Hasta pronto.")
+            break
         except Exception as e:
             print("⚠️ Error procesando la consulta:", str(e))
 
