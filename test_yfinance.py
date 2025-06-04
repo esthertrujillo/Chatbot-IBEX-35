@@ -1,15 +1,22 @@
-import yfinance as yf
+from main_graph import graph  # importa tu grafo de LangGraph
 
-# Ticker de Iberdrola en Yahoo Finance
-ticker = "IBE.MC"
-fecha_inicio = "2023-03-01"
-fecha_fin = "2023-03-31"
+if __name__ == "__main__":
+    while True:
+        user_input = input("📝 Escribe tu pregunta financiera (o 'salir'): ")
+        if user_input.lower() == "salir":
+            break
 
-df = yf.download(ticker, start=fecha_inicio, end=fecha_fin, progress=False)
+        state = {"input": user_input}
+        print("🚀 Ejecutando el flujo LangGraph...")
+        final_state = graph.invoke(state)
 
-if df.empty:
-    print("⚠️ No se obtuvieron datos. Verifica el ticker o las fechas.")
-else:
-    precio_medio = round(df["Close"].mean(), 2)
-    print(f"✅ Precio medio de {ticker} entre {fecha_inicio} y {fecha_fin}: {precio_medio}€")
-    print(df.head())
+        print("📤 Respuesta final:")
+        print(final_state.get("respuesta", "No se generó respuesta"))
+        print("📄 Fuente:", final_state.get("fuente", "desconocida"))
+        print("🔍 Tipo:", final_state.get("tipo_pregunta", "no detectado"))
+        print("------\n")
+
+
+#pruebas
+#¿Cuál fue el precio medio de Endesa entre enero y marzo de 2023?
+

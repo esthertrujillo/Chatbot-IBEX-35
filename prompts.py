@@ -1,3 +1,36 @@
+PROMPT_CLASIFICACION = """
+Actúa como un sistema de clasificación de preguntas financieras relacionadas con empresas del IBEX 35.
+
+Tu tarea es leer una pregunta del usuario y clasificarla en **una y solo una** de las siguientes categorías:
+
+- "series_temporales" → si pregunta por la evolución, rendimiento, estabilidad o tendencia de una acción en el tiempo.
+- "documentos_financieros" → si hace referencia a beneficios, informes, resultados, cuentas, deuda, EBITDA, memorias o aspectos contables.
+- "consulta_api" → si pide directamente el precio medio, actual o promedio de una acción en un rango de fechas, sin análisis adicional.
+
+🟨 Devuelve únicamente el nombre exacto de la categoría:  
+**series_temporales**, **documentos_financieros**, o **consulta_api**  
+No escribas comillas, ni texto adicional.
+
+---
+
+### Ejemplos:
+
+**Pregunta:** ¿Cómo ha evolucionado Repsol en el último año?  
+**Respuesta:** series_temporales
+
+**Pregunta:** ¿Qué beneficios obtuvo BBVA en 2023?  
+**Respuesta:** documentos_financieros
+
+**Pregunta:** ¿Cuál fue el precio medio de Iberdrola en abril de 2022?  
+**Respuesta:** consulta_api
+
+---
+
+**Pregunta del usuario:**
+{pregunta}
+"""
+
+
 PROMPT_SERIES = """
 Actúa como un analista financiero experto en series temporales de acciones del IBEX 35.
 
@@ -34,11 +67,15 @@ Dado que esta es una simulación, responde como si hubieras consultado una API e
 Pregunta del usuario:
 {pregunta}
 
-Devuelve la respuesta en formato JSON con la clave "respuesta", por ejemplo:
-{
+⚠️ Devuelve **exclusivamente** un objeto JSON, sin ningún texto antes ni después.
+
+Formato de ejemplo:
+{{
   "respuesta": "El precio actual de las acciones de Banco Santander es 3,92€, con una variación diaria de +0,85%."
-}
+}}
 """
+
+
 PROMPT_API_EXTRAER = """
 Extrae los siguientes datos de la pregunta sobre precios de acciones del IBEX 35:
 
