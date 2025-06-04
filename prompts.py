@@ -1,3 +1,8 @@
+from datetime import date
+HOY = date.today().strftime("%Y-%m-%d")
+
+
+
 PROMPT_SERIES = """
 Actúa como un analista financiero experto en series temporales de acciones del IBEX 35.
 
@@ -46,6 +51,16 @@ Extrae los siguientes datos de la pregunta sobre precios de acciones del IBEX 35
 - fecha_inicio (YYYY-MM-DD)
 - fecha_fin (YYYY-MM-DD)
 
+Si no se menciona el año explícitamente, **asume que se refiere al año 2025**.
+
+🟢 Consejo adicional:
+Si la pregunta contiene expresiones como "hoy", "ayer" o "última semana", utiliza la fecha actual `{hoy}` como referencia y ajusta las fechas:
+
+- "hoy" → fecha_inicio = fecha_fin = {hoy}
+- "ayer" → fecha_inicio = fecha_fin = {ayer}
+- "última semana" → fecha_inicio = {hoy_menos_7}, fecha_fin = {hoy}
+
+---
 Responde **EXCLUSIVAMENTE** en formato JSON, sin explicaciones, texto adicional o puntuación extra.
 La respuesta debe ser **SOLAMENTE** el objeto JSON.
 

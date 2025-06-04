@@ -14,3 +14,26 @@ He reemplazado la consola por una interfaz gráfica web usando Streamlit, lo que
 
 🚀 Actualización del modelo LLM
 Sustituí el modelo mixtral, que ya no está disponible, por llama3-8b-8192 a través de la API de Groq, que es más moderno y eficiente.
+
+
+🔄 CAMBIOS REALIZADOS DE LA DEMO_1 A LA DEMO_2
+
+✅ Impresión detallada del cálculo del precio
+Ahora se muestra paso a paso cómo se calcula el precio medio:
+- Se imprime el dataframe crudo (RAW DATA) recibido de yfinance.
+- Se listan las fechas reales disponibles en ese rango.
+- Se muestra el cálculo final de la media.
+Esto ayuda a auditar y entender el comportamiento real del sistema.
+
+📅 Gestión de expresiones como “hoy”, “ayer”, “anteayer”…
+Se añadió un bloque de contexto al prompt para que el modelo interprete correctamente fechas relativas como:
+"¿Cuánto vale Telefónica hoy?"
+"¿A cuánto cerró Iberdrola ayer?"
+Esto se logra pasando la fecha actual (hoy) al prompt y dejando que el modelo genere las fechas correctas en formato YYYY-MM-DD.
+
+🧠 Mejoras en el prompt de extracción (PROMPT_API_EXTRAER)
+El prompt ahora contiene una instrucción adicional para que el modelo asuma el año actual si no se especifica y para que maneje expresiones como "ayer" o "hoy".
+
+🔁 Función consultar_precio_medio mejorada
+Ahora devuelve una tupla con el precio medio y la fecha real utilizada.
+Esto permite identificar si la fecha solicitada no estaba disponible y se usó una alternativa próxima (como en fines de semana).
