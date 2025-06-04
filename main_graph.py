@@ -1,7 +1,7 @@
 import os
 import re
 import json
-import datetime
+from datetime import datetime, timedelta 
 from dotenv import load_dotenv
 from typing import Optional
 from typing_extensions import TypedDict
@@ -24,20 +24,7 @@ llm = ChatGroq(
 )
 
 # ---------------------------------------------------------
-# 2. Función auxiliar para extraer JSON
-# ---------------------------------------------------------
-
-def extract_json(text: str) -> dict:
-    try:
-        text = text.strip()
-        if text.startswith("{") and not text.endswith("}"):
-            text += "}"
-        return json.loads(text)
-    except Exception as e:
-        raise ValueError(f"❌ Error al extraer JSON: {e}\nTexto recibido:\n{text}")
-
-# ---------------------------------------------------------
-# 3. Estado del chatbot
+# 2. Estado del chatbot
 # ---------------------------------------------------------
 
 class ChatbotState(TypedDict):
@@ -48,6 +35,41 @@ class ChatbotState(TypedDict):
     fuente: Optional[str]
     fecha_inicio: Optional[str]
     fecha_fin: Optional[str]
+
+
+# ---------------------------------------------------------
+# 3. Funciones auxiliares y utilidades
+# ---------------------------------------------------------
+
+### 1. Extrae un JSON del texto dado, manejando errores y formatos incorrectos
+
+def extract_json(text: str) -> dict:
+    try:
+        text = text.strip()
+        if text.startswith("{") and not text.endswith("}"):
+            text += "}"
+        return json.loads(text)
+    except Exception as e:
+        raise ValueError(f"❌ Error al extraer JSON: {e}\nTexto recibido:\n{text}")
+
+### 2. Normaliza fechas relativas como "lunes pasado" a la fecha del último lunes
+def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
+    hoy = datetime.today()
+    
+    def get_last_monday():
+        return hoy - timedelta(days=hoy.weekday() + 7)
+
+    def to_str(date_obj):
+        return date_obj.strftime("%Y-%m-%d")
+    
+    if fecha_inicio is None or "lunes pasado" in fecha_inicio.lower():
+        fecha_inicio = to_str(get_last_monday())
+    if fecha_fin is None or "lunes pasado" in fecha_fin.lower():
+        fecha_fin = to_str(get_last_monday())
+
+    return fecha_inicio, fecha_fin
+
+
 
 # ---------------------------------------------------------
 # 4. Nodo: Clasificación
@@ -123,9 +145,8 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
         fecha_inicio = data.get("fecha_inicio")
         fecha_fin = data.get("fecha_fin")
 
-        if not fecha_inicio or not fecha_fin:
-            hoy = datetime.date.today().strftime("%Y-%m-%d")
-            fecha_inicio = fecha_fin = hoy
+        # ✅ Normaliza si pone "lunes pasado" u otras expresiones
+        fecha_inicio, fecha_fin = normalizar_fechas_relativas(fecha_inicio, fecha_fin)
 
     except Exception as e:
         print(f"⚠️ Error extrayendo parámetros: {e}")
@@ -172,6 +193,7 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
         "fecha_inicio": fecha_inicio,
         "fecha_fin": fecha_fin
     }
+
 
 # ---------------------------------------------------------
 # 9. Construcción del grafo

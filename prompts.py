@@ -64,35 +64,42 @@ Eres un sistema que accede a información financiera en tiempo real a través de
 
 Dado que esta es una simulación, responde como si hubieras consultado una API externa que ofrece precios actuales de acciones.
 
+---
 Pregunta del usuario:
 {pregunta}
 
+---
 ⚠️ Devuelve **exclusivamente** un objeto JSON, sin ningún texto antes ni después.
 
 Formato de ejemplo:
 {{
   "respuesta": "El precio actual de las acciones de Banco Santander es 3,92€, con una variación diaria de +0,85%."
 }}
+
 """
 
 
 PROMPT_API_EXTRAER = """
 Extrae los siguientes datos de la pregunta sobre precios de acciones del IBEX 35:
 
-- empresa (en minúsculas)
+- empresa (en minúsculas, sin tildes ni mayúsculas)
 - fecha_inicio (YYYY-MM-DD)
 - fecha_fin (YYYY-MM-DD)
 
-Responde **EXCLUSIVAMENTE** en formato JSON, sin explicaciones, texto adicional o puntuación extra.
-La respuesta debe ser **SOLAMENTE** el objeto JSON.
+Usa la lógica de lenguaje natural para interpretar referencias temporales como "ayer", "la semana pasada", "el lunes", etc. Calcula fechas realistas basadas en hoy (aunque estés simulando).
 
-Ejemplo de formato de respuesta:
+---
+Pregunta:
+a cuanto cotizó telefonica la semana pasada
+
+---
+⚠️ Devuelve EXCLUSIVAMENTE un objeto JSON, sin ningún texto antes ni después.
+
+🛑 No copies el ejemplo siguiente literalmente. Solo es un ejemplo de formato:
+
 {{
   "empresa": "iberdrola",
   "fecha_inicio": "2023-03-01",
   "fecha_fin": "2023-03-30"
 }}
-
-Pregunta:
-{pregunta}
 """
