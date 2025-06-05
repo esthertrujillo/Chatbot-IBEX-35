@@ -37,3 +37,11 @@ El prompt ahora contiene una instrucción adicional para que el modelo asuma el 
 🔁 Función consultar_precio_medio mejorada
 Ahora devuelve una tupla con el precio medio y la fecha real utilizada.
 Esto permite identificar si la fecha solicitada no estaba disponible y se usó una alternativa próxima (como en fines de semana).
+
+Pasos Futuros
+- Que tenga memoria el chat bot (por detras se repite la pregunta, y si muestra la 2da) aun no
+- Que la eleccion es si es serie temporal, api o rag lo haga un prompt (nodo clasificar)
+    - hago un nodo y un prompt que lo clasifique (proporcionar ejemplos)
+- una tool para noticias (yahoo finance) que recurra a el cuando la pregunta lo precise
+    - 
+- seguir adaptando las posibles formas de referirse a el "tiempo" (ayer, hoy...)
