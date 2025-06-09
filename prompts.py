@@ -43,9 +43,9 @@ Pregunta del usuario:
 {pregunta}
 
 Devuelve un objeto JSON con la clave "respuesta", por ejemplo:
-{
+{{
   "respuesta": "Acciona Energía ha mostrado una tendencia bajista en la última semana, con un ligero repunte en los últimos dos días."
-}
+}}
 """
 
 
