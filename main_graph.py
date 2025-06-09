@@ -9,16 +9,21 @@ import pandas as pd
 from langgraph.graph import StateGraph, END
 from langchain_core.runnables import RunnableLambda
 from langchain_groq import ChatGroq
+
 from prompts import PROMPT_SERIES, PROMPT_DOCUMENTOS, PROMPT_API_EXTRAER, PROMPT_CLASIFICACION, PROMPT_API
 from cotizaciones import construir_respuesta_yfinance
-from utils_series import detectar_empresa, detectar_lag, cargar_datos_lag, generar_grafico_predicciones
+from utils.series_temporales import (
+    detectar_empresa,
+    detectar_lag,
+    cargar_modelo_lag,
+    generar_grafico_predicciones
+)
 
 # ---------------------------------------------------------
 # 1. Configuración del modelo
 # ---------------------------------------------------------
 
 load_dotenv()
-
 print("GROQ_API_KEY cargada:", os.getenv("GROQ_API_KEY"))
 
 llm = ChatGroq(
@@ -39,13 +44,11 @@ class ChatbotState(TypedDict):
     fuente: Optional[str]
     fecha_inicio: Optional[str]
     fecha_fin: Optional[str]
-
+    grafico_base64: Optional[str]
 
 # ---------------------------------------------------------
-# 3. Funciones auxiliares y utilidades
+# 3. Funciones auxiliares
 # ---------------------------------------------------------
-
-### 1. Extrae un JSON del texto dado, manejando errores y formatos incorrectos
 
 def extract_json(text: str) -> dict:
     try:
@@ -56,7 +59,6 @@ def extract_json(text: str) -> dict:
     except Exception as e:
         raise ValueError(f"❌ Error al extraer JSON: {e}\nTexto recibido:\n{text}")
 
-### 2. Normaliza fechas relativas como "lunes pasado" a la fecha del último lunes
 def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
     hoy = datetime.today()
     
@@ -72,8 +74,6 @@ def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
         fecha_fin = to_str(get_last_monday())
 
     return fecha_inicio, fecha_fin
-
-
 
 # ---------------------------------------------------------
 # 4. Nodo: Clasificación
@@ -111,19 +111,21 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
     try:
         data = extract_json(response.content)
         respuesta_texto = data["respuesta"]
-    except:
+    except Exception as e:
         respuesta_texto = "(No se pudo interpretar la respuesta del modelo)"
+        print(f"⚠️ Error interpretando JSON: {e}")
 
-    # 🔍 Detección automática de empresa y lag
     empresa = detectar_empresa(pregunta)
     lag = detectar_lag(pregunta)
 
     try:
-        df = cargar_datos_lag(empresa, lag)
-        img_base64 = generar_grafico_predicciones(df, empresa, lag)
+        modelo_cargado = cargar_modelo_lag(empresa, lag)
+        df = modelo_cargado["data"]
+        modelo = modelo_cargado["modelo"]
+        img_base64 = generar_grafico_predicciones(df, empresa, lag, modelo)
     except Exception as e:
         img_base64 = None
-        print(f"⚠️ Error al generar gráfico para {empresa} lag {lag}: {e}")
+        print(f"⚠️ Error al generar gráfico para {empresa} con lag {lag}: {e}")
 
     return {
         **state,
@@ -133,9 +135,11 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
         "grafico_base64": img_base64
     }
 
-    # ---------------------------------------------------------
-# 7. Nodo: Documentos financieros (placeholder temporal)
+
 # ---------------------------------------------------------
+# 7. Nodo: Documentos financieros
+# ---------------------------------------------------------
+
 def extraer_documento_financiero(state: ChatbotState) -> ChatbotState:
     return {
         **state,
@@ -143,15 +147,14 @@ def extraer_documento_financiero(state: ChatbotState) -> ChatbotState:
         "fuente": "documentos_financieros"
     }
 
-
 # ---------------------------------------------------------
 # 8. Nodo: Consulta API financiera
 # ---------------------------------------------------------
+
 def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     pregunta = state["input"]
     print(f"[🌐 Nodo API] Pregunta: {pregunta}")
     
-    # Paso 1: extracción de parámetros
     extraction_prompt = PROMPT_API_EXTRAER.format(pregunta=pregunta)
     response = llm.invoke(extraction_prompt)
     llm_response_content = response.content.strip()
@@ -163,10 +166,7 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
         empresa = data.get("empresa")
         fecha_inicio = data.get("fecha_inicio")
         fecha_fin = data.get("fecha_fin")
-
-        # ✅ Normaliza si pone "lunes pasado" u otras expresiones
         fecha_inicio, fecha_fin = normalizar_fechas_relativas(fecha_inicio, fecha_fin)
-
     except Exception as e:
         print(f"⚠️ Error extrayendo parámetros: {e}")
         return {
@@ -175,8 +175,6 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
             "fuente": "api"
         }
 
-    print(f"[🌐 Nodo API] Parámetros extraídos: empresa={empresa}, desde={fecha_inicio}, hasta={fecha_fin}")
-
     if not all([empresa, fecha_inicio, fecha_fin]):
         return {
             **state,
@@ -184,7 +182,6 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
             "fuente": "api"
         }
 
-    # Paso 2: simulación con PROMPT_API
     simulacion_prompt = PROMPT_API.format(pregunta=pregunta)
     simulacion_response = llm.invoke(simulacion_prompt)
     print(f"[🌐 Nodo API] Prompt de simulación:\n{simulacion_prompt}")
@@ -197,11 +194,9 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
         print(f"⚠️ Error extrayendo respuesta simulada: {e}")
         respuesta_simulada = "(No se pudo generar una respuesta simulada del LLM)"
 
-    # Paso 3: llamada real a yfinance
     resultado = construir_respuesta_yfinance(empresa, fecha_inicio, fecha_fin)
     print(f"[🌐 Nodo API] Respuesta real:\n{resultado['respuesta']}")
 
-    # Paso 4: combinación
     respuesta_final = f"{respuesta_simulada}\n\n📊 Datos reales:\n{resultado['respuesta']}"
 
     return {
@@ -212,7 +207,6 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
         "fecha_inicio": fecha_inicio,
         "fecha_fin": fecha_fin
     }
-
 
 # ---------------------------------------------------------
 # 9. Construcción del grafo
