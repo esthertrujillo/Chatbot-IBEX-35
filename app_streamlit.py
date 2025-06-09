@@ -22,12 +22,18 @@ if st.button("Enviar") and pregunta:
         result = grafo.invoke({"input": pregunta})
         respuesta = result.get("respuesta", "Sin respuesta.")
         fuente = result.get("fuente", "desconocida")
+
+        # Añadir al historial
         st.session_state.historial.append(("Tú", pregunta))
         st.session_state.historial.append((f"Bot ({fuente})", respuesta))
+
+        # Mostrar imagen si la respuesta incluye gráfico
+        if fuente == "series_temporales" and result.get("grafico_base64"):
+            st.image("data:image/png;base64," + result["grafico_base64"])
+
     except Exception as e:
         st.error(f"⚠️ Error procesando la consulta: {e}")
 
 # Mostrar historial
 for autor, texto in st.session_state.historial:
     st.markdown(f"**{autor}:** {texto}")
-

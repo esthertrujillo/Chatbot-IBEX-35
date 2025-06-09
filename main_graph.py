@@ -11,12 +11,16 @@ from langchain_core.runnables import RunnableLambda
 from langchain_groq import ChatGroq
 from prompts import PROMPT_SERIES, PROMPT_DOCUMENTOS, PROMPT_API_EXTRAER, PROMPT_CLASIFICACION, PROMPT_API
 from cotizaciones import construir_respuesta_yfinance
+from utils_series import detectar_empresa, detectar_lag, cargar_datos_lag, generar_grafico_predicciones
 
 # ---------------------------------------------------------
 # 1. Configuración del modelo
 # ---------------------------------------------------------
 
 load_dotenv()
+
+print("GROQ_API_KEY cargada:", os.getenv("GROQ_API_KEY"))
+
 llm = ChatGroq(
     groq_api_key=os.getenv("GROQ_API_KEY"),
     model_name="llama3-8b-8192",
@@ -100,30 +104,45 @@ def seleccionar_fuente(state: ChatbotState) -> str:
 # ---------------------------------------------------------
 
 def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
-    print(f"[🟦 Nodo SERIES] Pregunta: {state['input']}")
-    prompt = PROMPT_SERIES.format(pregunta=state["input"])
-    print(f"[🟦 Nodo SERIES] Prompt enviado:\n{prompt}")
-    
+    pregunta = state["input"]
+    prompt = PROMPT_SERIES.format(pregunta=pregunta)
     response = llm.invoke(prompt)
-    print(f"[🟦 Nodo SERIES] Respuesta del modelo:\n{response.content}")
-    
-    data = extract_json(response.content)
-    return {**state, "respuesta": data["respuesta"], "fuente": "series_temporales"}
 
-# ---------------------------------------------------------
-# 7. Nodo: Documentos financieros
-# ---------------------------------------------------------
+    try:
+        data = extract_json(response.content)
+        respuesta_texto = data["respuesta"]
+    except:
+        respuesta_texto = "(No se pudo interpretar la respuesta del modelo)"
 
+    # 🔍 Detección automática de empresa y lag
+    empresa = detectar_empresa(pregunta)
+    lag = detectar_lag(pregunta)
+
+    try:
+        df = cargar_datos_lag(empresa, lag)
+        img_base64 = generar_grafico_predicciones(df, empresa, lag)
+    except Exception as e:
+        img_base64 = None
+        print(f"⚠️ Error al generar gráfico para {empresa} lag {lag}: {e}")
+
+    return {
+        **state,
+        "respuesta": respuesta_texto,
+        "fuente": "series_temporales",
+        "empresa": empresa,
+        "grafico_base64": img_base64
+    }
+
+    # ---------------------------------------------------------
+# 7. Nodo: Documentos financieros (placeholder temporal)
+# ---------------------------------------------------------
 def extraer_documento_financiero(state: ChatbotState) -> ChatbotState:
-    print(f"[📊 Nodo DOCUMENTOS] Pregunta: {state['input']}")
-    prompt = PROMPT_DOCUMENTOS.format(pregunta=state["input"])
-    print(f"[📊 Nodo DOCUMENTOS] Prompt enviado:\n{prompt}")
-    
-    response = llm.invoke(prompt)
-    print(f"[📊 Nodo DOCUMENTOS] Respuesta del modelo:\n{response.content}")
-    
-    data = extract_json(response.content)
-    return {**state, "respuesta": data["respuesta"], "fuente": "documentos"}
+    return {
+        **state,
+        "respuesta": "📝 La funcionalidad de documentos financieros aún no está implementada.",
+        "fuente": "documentos_financieros"
+    }
+
 
 # ---------------------------------------------------------
 # 8. Nodo: Consulta API financiera

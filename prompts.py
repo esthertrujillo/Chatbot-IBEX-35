@@ -34,16 +34,20 @@ No escribas comillas, ni texto adicional.
 PROMPT_SERIES = """
 Actúa como un analista financiero experto en series temporales de acciones del IBEX 35.
 
-Tu tarea es responder a la siguiente pregunta relacionada con el comportamiento histórico de una acción.
+Tu tarea es:
+1. Analizar la pregunta del usuario para entender qué empresa del IBEX 35 menciona.
+2. Inferir si se refiere a una evolución reciente (1 día), semanal (7 días) o más larga (15 días).
+3. Simular una respuesta basada en el comportamiento de la acción en ese período, aunque no tengas acceso directo a los datos.
 
 Pregunta del usuario:
 {pregunta}
 
-Devuelve tu respuesta en formato JSON con la clave "respuesta", por ejemplo:
+Devuelve un objeto JSON con la clave "respuesta", por ejemplo:
 {
-  "respuesta": "La acción de Iberdrola ha tenido una tendencia alcista en el último año, con un incremento acumulado del 8%. La volatilidad se ha mantenido estable respecto al año anterior."
+  "respuesta": "Acciona Energía ha mostrado una tendencia bajista en la última semana, con un ligero repunte en los últimos dos días."
 }
 """
+
 
 PROMPT_DOCUMENTOS = """
 Eres un asistente especializado en interpretar información contenida en informes anuales, presentaciones de resultados y memorias corporativas de empresas del IBEX 35.
