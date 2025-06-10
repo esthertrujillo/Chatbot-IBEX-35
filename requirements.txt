@@ -21,3 +21,6 @@ ipython>=8.0.0
 
 # Interfaz 
 streamlit>=1.30.0
+
+matplotlib
+scikit-learn

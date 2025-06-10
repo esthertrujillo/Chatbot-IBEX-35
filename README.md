@@ -16,3 +16,6 @@ He reemplazado la consola por una interfaz gráfica web usando Streamlit, lo que
 Sustituí el modelo mixtral, que ya no está disponible, por llama3-8b-8192 a través de la API de Groq, que es más moderno y eficiente.
 
 🔄 CAMBIOS REALIZADOS DE LA DEMO_1 a la DEMO_2
+
+to do:
+integrar series temporales 
