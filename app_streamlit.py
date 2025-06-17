@@ -1,10 +1,12 @@
-# app_streamlit.py
 import streamlit as st
 from main_graph import build_graph
+import torch
+torch.classes = None
+
 
 st.set_page_config(page_title="Chatbot IBEX 35", page_icon="💬")
 st.title("🤖 Chatbot Financiero IBEX 35")
-st.markdown("Consulta precios históricos de acciones del IBEX 35 usando lenguaje natural.")
+st.markdown("Consulta precios históricos de acciones del IBEX 35 o analiza documentos financieros usando lenguaje natural.")
 
 # Cargar el grafo LangGraph
 grafo = build_graph()
@@ -24,11 +26,17 @@ if st.button("Enviar") and pregunta:
 
         # Añadir al historial
         st.session_state.historial.append(("Tú", pregunta))
-        st.session_state.historial.append((f"Bot ({fuente})", respuesta))
+        st.session_state.historial.append((f"Bot (Fuente: {fuente})", respuesta))
 
-        # Mostrar imagen si la respuesta incluye gráfico
+        # Mostrar gráfico si aplica
         if fuente == "series_temporales" and result.get("grafico_base64"):
             st.image("data:image/png;base64," + result["grafico_base64"])
+
+        # Mostrar fragmentos usados si fue Qdrant/RAG
+        if fuente == "qdrant" and result.get("fragmentos"):
+            with st.expander("🔍 Fragmentos usados (RAG)"):
+                for frag in result["fragmentos"]:
+                    st.markdown(f"- {frag}")
 
     except Exception as e:
         st.error(f"⚠️ Error procesando la consulta: {e}")

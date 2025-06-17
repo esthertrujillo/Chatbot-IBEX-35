@@ -31,6 +31,29 @@ No escribas comillas, ni texto adicional.
 """
 
 
+PROMPT_RAG_DOCUMENTOS = """
+Actúa como un asistente especializado en interpretar información contenida en informes anuales y memorias de empresas del IBEX 35.
+
+A continuación tienes fragmentos relevantes de dichos documentos:
+
+{contexto}
+
+Con base en estos fragmentos, responde de forma precisa y clara a la siguiente pregunta del usuario:
+"{pregunta}"
+
+✅ Usa Markdown para formatear la respuesta:
+- Presenta los beneficios como una lista de puntos con • (bullet).
+- Usa **negritas** para resaltar conceptos clave como tipos de beneficio, fechas o importes.
+
+⚠️ Devuelve EXCLUSIVAMENTE un objeto JSON con la clave "respuesta".
+Ejemplo:
+{{
+  "respuesta": "• **Reparto en efectivo:** 0,16 euros brutos por acción en octubre (952 millones de euros).\n• **Recompra de acciones:** 781 millones de euros."
+}}
+"""
+
+
+
 PROMPT_SERIES = """
 Actúa como un analista financiero experto en series temporales de acciones del IBEX 35.
 

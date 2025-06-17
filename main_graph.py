@@ -10,7 +10,8 @@ from langgraph.graph import StateGraph, END
 from langchain_core.runnables import RunnableLambda
 from langchain_groq import ChatGroq
 
-from prompts import PROMPT_SERIES, PROMPT_DOCUMENTOS, PROMPT_API_EXTRAER, PROMPT_CLASIFICACION, PROMPT_API
+from qdrant_utils import buscar_en_qdrant
+from prompts import PROMPT_SERIES, PROMPT_API_EXTRAER, PROMPT_CLASIFICACION, PROMPT_API, PROMPT_RAG_DOCUMENTOS
 from cotizaciones import construir_respuesta_yfinance
 from utils.series_temporales import (
     detectar_empresa,
@@ -53,6 +54,8 @@ class ChatbotState(TypedDict):
 def extract_json(text: str) -> dict:
     try:
         text = text.strip()
+        # Intenta limpiar control chars (por ejemplo \n no escapados)
+        text = re.sub(r'(?<!\\)\n', ' ', text)  # Cambia saltos de línea sin escapar por espacio
         if text.startswith("{") and not text.endswith("}"):
             text += "}"
         return json.loads(text)
@@ -137,14 +140,41 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
 
 
 # ---------------------------------------------------------
-# 7. Nodo: Documentos financieros
+# 7. Nodo: Documentos financieros -> Llama a Qdrant
 # ---------------------------------------------------------
 
-def extraer_documento_financiero(state: ChatbotState) -> ChatbotState:
+def consulta_qdrant(state: ChatbotState) -> ChatbotState:
+    pregunta = state["input"]
+    
+    # Buscar fragmentos relevantes en Qdrant
+    resultados = buscar_en_qdrant(pregunta)
+    fragmentos = [r.payload.get("fragmento", "") for r in resultados]
+    contexto = "\n\n".join(fragmentos)
+
+    # Construir el prompt RAG usando el contexto y la pregunta
+    prompt_rag = PROMPT_RAG_DOCUMENTOS.format(contexto=contexto, pregunta=pregunta)
+
+    # Invocar el LLM
+    respuesta_llm = llm.invoke(prompt_rag).content.strip()
+
+    # Intentar extraer el JSON con la respuesta
+    try:
+        data = extract_json(respuesta_llm)
+        respuesta_final = data.get("respuesta", "(El modelo no devolvió una clave 'respuesta').")
+    except Exception as e:
+        print(f"⚠️ Error extrayendo JSON del LLM: {e}")
+        respuesta_final = respuesta_llm  # fallback: muestra el texto bruto del LLM
+
+    # 👉 APLICAMOS FORMATO
+    respuesta_final = respuesta_final.replace(". ", ".  \n")  # salto de línea tras cada punto
+    respuesta_final = respuesta_final.replace("- ", "• ")   # cambia guiones por bullets
+
+    # Devolvemos el estado actualizado
     return {
         **state,
-        "respuesta": "📝 La funcionalidad de documentos financieros aún no está implementada.",
-        "fuente": "documentos_financieros"
+        "respuesta": respuesta_final,
+        "fuente": "qdrant",
+        "fragmentos": fragmentos  # si quieres mostrar los fragmentos en Streamlit
     }
 
 # ---------------------------------------------------------
@@ -215,22 +245,28 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
 def build_graph():
     graph = StateGraph(ChatbotState)
 
+    # Añadimos los nodos
     graph.add_node("clasificar", RunnableLambda(clasificar_intencion))
     graph.add_node("series_temporales", RunnableLambda(analizar_series_temporales))
-    graph.add_node("documentos_financieros", RunnableLambda(extraer_documento_financiero))
+    graph.add_node("consulta_qdrant", RunnableLambda(consulta_qdrant))
     graph.add_node("consulta_api", RunnableLambda(consultar_api_financiera))
 
+    # Punto de entrada
     graph.set_entry_point("clasificar")
+
+    # Definimos cómo se mueve entre nodos según la clasificación
     graph.add_conditional_edges("clasificar", seleccionar_fuente, {
         "series_temporales": "series_temporales",
-        "documentos_financieros": "documentos_financieros",
+        "documentos_financieros": "consulta_qdrant",  # Las preguntas sobre documentos van al nodo Qdrant (RAG)
         "consulta_api": "consulta_api"
     })
 
+    # Finalizamos el flujo en estos nodos
     graph.add_edge("series_temporales", END)
-    graph.add_edge("documentos_financieros", END)
+    graph.add_edge("consulta_qdrant", END)
     graph.add_edge("consulta_api", END)
 
     return graph.compile()
 
+# Compilamos el grafo
 graph = build_graph()
