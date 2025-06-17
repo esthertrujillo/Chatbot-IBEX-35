@@ -24,3 +24,5 @@ streamlit>=1.30.0
 
 matplotlib
 scikit-learn
+sentence-transformers
+qdrant-client
