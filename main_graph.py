@@ -14,6 +14,7 @@ from langchain_groq import ChatGroq
 
 from prompts import PROMPT_SERIES, PROMPT_DOCUMENTOS, PROMPT_API_EXTRAER
 from cotizaciones import construir_respuesta_yfinance
+from series_model import ejecutar_prediccion
 
 # ---------------------------------------------------------
 # 1. Configuración del modelo (Groq con Mixtral)
@@ -62,6 +63,8 @@ def clasificar_intencion(state: ChatbotState) -> ChatbotState:
         tipo = "series_temporales"
     elif "informe" in pregunta or "beneficio" in pregunta or "memoria" in pregunta:
         tipo = "documentos_financieros"
+    elif "predice" in pregunta or ("en" in pregunta and "días" in pregunta):
+        tipo = "series_reales"
     elif "precio actual" in pregunta or "valor ahora" in pregunta or "api" in pregunta or "precio medio" in pregunta:
         tipo = "consulta_api"
     else:
@@ -127,7 +130,27 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     }
 
 # ---------------------------------------------------------
-# 9. Construcción del grafo LangGraph
+# 9. Nodo: Llama al modelo real de series temporales
+# ---------------------------------------------------------
+
+def nodo_series_reales(state: ChatbotState) -> ChatbotState:
+    # Por ahora hardcodeado, se puede mejorar con extracción dinámica
+    empresa = "BBVA"
+    lag = 7
+
+    modelos_dir = "./modelos_por_empresa"
+    path_csv = "./data/IBEX35_cotizaciones_20_Limpio.csv"
+
+    resultado = ejecutar_prediccion(empresa, lag, path_csv, modelos_dir)
+
+    return {
+        **state,
+        "respuesta": resultado["respuesta"],
+        "fuente": "series_reales"
+    }
+
+# ---------------------------------------------------------
+# 10. Construcción del grafo LangGraph
 # ---------------------------------------------------------
 
 def build_graph():
@@ -138,6 +161,7 @@ def build_graph():
     graph.add_node("series_temporales", RunnableLambda(analizar_series_temporales))
     graph.add_node("documentos_financieros", RunnableLambda(extraer_documento_financiero))
     graph.add_node("consulta_api", RunnableLambda(consultar_api_financiera))
+    graph.add_node("series_reales", RunnableLambda(nodo_series_reales))
 
     graph.set_entry_point("clasificar")
     graph.add_edge("clasificar", "seleccionar_fuente")
@@ -145,11 +169,13 @@ def build_graph():
     graph.add_conditional_edges("seleccionar_fuente", seleccionar_fuente, {
         "series_temporales": "series_temporales",
         "documentos_financieros": "documentos_financieros",
-        "consulta_api": "consulta_api"
+        "consulta_api": "consulta_api",
+        "series_reales": "series_reales"
     })
 
     graph.add_edge("series_temporales", END)
     graph.add_edge("documentos_financieros", END)
     graph.add_edge("consulta_api", END)
+    graph.add_edge("series_reales", END)
 
     return graph.compile()
