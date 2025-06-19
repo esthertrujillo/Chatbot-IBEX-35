@@ -17,6 +17,19 @@ Sustituí el modelo mixtral, que ya no está disponible, por llama3-8b-8192 a tr
 
 🔄 CAMBIOS REALIZADOS DE LA DEMO_2 a la DEMO_3
 
-De la DEMO 2 a chapuzasrag (demo 3)
-- para clasificar la intencion pasa por un prompt
-- he añadido el rag, para ello se define, se hace una llamada a qdrant, se incluye en el flujo  de langgraph. Tambien he actualizado el prompt 
+✅ Integración de series temporales con modelos reales
+En DEMO 3 he incorporado la predicción real mediante modelos pickle (.pkl) por empresa y lag (1, 7 o 15 días). Esto permite al chatbot devolver resultados de predicción basados en modelos entrenados, no solo simulaciones.
+
+✅ Integración del motor RAG con Qdrant
+He conectado el sistema a una base vectorial Qdrant, lo que permite realizar búsquedas semánticas en documentos financieros (informes, memorias, resultados). El modelo LLM genera respuestas basadas en los fragmentos encontrados, enriqueciendo las respuestas documentales.
+
+✅ Clasificación automática mediante prompt especializado
+La clasificación de cada pregunta del usuario ahora se realiza mediante un prompt específico (PROMPT_CLASIFICACION). El LLM analiza la consulta y decide de forma autónoma si debe activarse el nodo de series temporales, API de precios o RAG con Qdrant.
+
+🔗 Orquestación unificada con LangGraph
+He unificado todos los componentes en un flujo orquestado modular mediante LangGraph, facilitando la escalabilidad y el mantenimiento del sistema.
+
+🌐 App de Streamlit con funcionalidad completa
+La interfaz en Streamlit ahora soporta consultas de los tres tipos: series temporales, API real (yfinance) y RAG (Qdrant). El usuario recibe una respuesta enriquecida, con fragmentos o gráficos si aplica.
+
+
