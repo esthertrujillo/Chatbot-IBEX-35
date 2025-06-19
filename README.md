@@ -32,4 +32,7 @@ He unificado todos los componentes en un flujo orquestado modular mediante LangG
 🌐 App de Streamlit con funcionalidad completa
 La interfaz en Streamlit ahora soporta consultas de los tres tipos: series temporales, API real (yfinance) y RAG (Qdrant). El usuario recibe una respuesta enriquecida, con fragmentos o gráficos si aplica.
 
+🔄 CAMBIOS REALIZADOS DE LA DEMO_3 a la DEMO_4
 
+actualizacion de la app de stremlit 
+gestion de errores, que no se le pueda hacer preguntas no relaconadas

@@ -1,3 +1,15 @@
+# prompts.py content
+
+PROMPT_FILTRO_INICIAL = """Eres un asistente financiero especializado. Tu tarea es analizar la pregunta del usuario y clasificarla en una de las siguientes categorías, respondiendo únicamente con el nombre de la categoría en minúsculas:
+
+- **saludo**: Si la pregunta es un saludo simple o una interacción social básica, sin pedir información específica (ej. "hola", "¿qué tal?", "buenos días", "cómo estás?", "qué hay?", "saludos").
+- **fuera_de_alcance**: Si la pregunta no está relacionada con finanzas, cotizaciones, predicciones de acciones, documentos financieros o cualquier tema económico/de mercado. Es decir, si es un tema generalista o que no tiene que ver con finanzas (ej. "¿qué tiempo hace?", "cuéntame un chiste", "quién eres?", "de qué color son los unicornios?", "¿cuál es la capital de Francia?").
+- **valida**: Si la pregunta está claramente relacionada con información financiera (empresas, cotizaciones, datos económicos, informes, predicciones, etc.) y es algo que este chatbot financiero podría procesar (ej. "cuál es la cotización de BBVA", "predice el precio de Santander para mañana", "información sobre el informe anual de Repsol", "¿cuánto ha subido Iberdrola hoy?").
+
+Pregunta del usuario: {pregunta}
+Categoría:
+"""
+
 PROMPT_CLASIFICACION = """
 Actúa como un sistema de clasificación de preguntas financieras relacionadas con empresas del IBEX 35.
 
@@ -7,41 +19,40 @@ Tu tarea es leer una pregunta del usuario y clasificarla en **una y solo una** d
 - **documentos_financieros** → si hace referencia a beneficios, informes, resultados, cuentas, deuda, EBITDA, memorias o aspectos contables.
 - **consulta_api** → si pide directamente el precio medio, actual o promedio de una acción en un rango de fechas, sin análisis adicional.
 
-🟨 Devuelve únicamente el nombre exacto de la categoría:  
-series_temporales, documentos_financieros o consulta_api  
+🟨 Devuelve únicamente el nombre exacto de la categoría:
+series_temporales, documentos_financieros o consulta_api
 No escribas comillas, ni texto adicional.
 
 ---
 
 ### Ejemplos:
 
-**Pregunta:** ¿Cómo ha evolucionado Repsol en el último año?  
+**Pregunta:** ¿Cómo ha evolucionado Repsol en el último año?
 **Respuesta:** series_temporales
 
-**Pregunta:** ¿Qué beneficios obtuvo BBVA en 2023?  
+**Pregunta:** ¿Qué beneficios obtuvo BBVA en 2023?
 **Respuesta:** documentos_financieros
 
-**Pregunta:** ¿Cuál fue el precio medio de Iberdrola en abril de 2022?  
+**Pregunta:** ¿Cuál fue el precio medio de Iberdrola en abril de 2022?
 **Respuesta:** consulta_api
 
-**Pregunta:** ¿Cuál es la cotización de mañana de BBVA?  
+**Pregunta:** ¿Cuál es la cotización de mañana de BBVA?
 **Respuesta:** series_temporales
 
-**Pregunta:** Predicción para Iberdrola la próxima semana  
+**Pregunta:** Predicción para Iberdrola la próxima semana
 **Respuesta:** series_temporales
 
-**Pregunta:** ¿Qué comportamiento se espera de Santander en los próximos 15 días?  
+**Pregunta:** ¿Qué comportamiento se espera de Santander en los próximos 15 días?
 **Respuesta:** series_temporales
 
-**Pregunta:** Dame el precio actual de Telefónica  
+**Pregunta:** Dame el precio actual de Telefónica
 **Respuesta:** consulta_api
 
 ---
 
-**Pregunta del usuario:**  
+**Pregunta del usuario:**
 {pregunta}
 """
-
 
 PROMPT_RAG_DOCUMENTOS = """
 Actúa como un asistente especializado en interpretar información contenida en informes anuales y memorias de empresas del IBEX 35.
@@ -64,8 +75,6 @@ Ejemplo:
 }}
 """
 
-
-
 PROMPT_SERIES = """
 Actúa como un analista financiero experto en series temporales de acciones del IBEX 35.
 
@@ -82,7 +91,7 @@ Tu tarea es analizar la siguiente pregunta del usuario y extraer la siguiente in
 
 ### Ejemplos
 
-Pregunta: ¿Cuál es la cotización de BBVA mañana?  
+Pregunta: ¿Cuál es la cotización de BBVA mañana?
 Salida:
 {{
     "respuesta": "Se espera que BBVA tenga una ligera subida en la próxima sesión bursátil.",
@@ -90,7 +99,7 @@ Salida:
     "lag": 1
 }}
 
-Pregunta: Predicción para Iberdrola la próxima semana  
+Pregunta: Predicción para Iberdrola la próxima semana
 Salida:
 {{
     "respuesta": "Iberdrola podría experimentar estabilidad durante los próximos 7 días.",
@@ -98,7 +107,7 @@ Salida:
     "lag": 7
 }}
 
-Pregunta: ¿Qué pasará con Santander en los próximos 15 días?  
+Pregunta: ¿Qué pasará con Santander en los próximos 15 días?
 Salida:
 {{
     "respuesta": "Santander podría mostrar cierta volatilidad en las dos próximas semanas.",
@@ -108,14 +117,12 @@ Salida:
 
 ---
 
-**Pregunta del usuario:**  
+**Pregunta del usuario:**
 {pregunta}
 
-⚠ Devuelve EXCLUSIVAMENTE un objeto JSON con las claves: respuesta, empresa, lag.  
+⚠ Devuelve EXCLUSIVAMENTE un objeto JSON con las claves: respuesta, empresa, lag.
 No añadas texto adicional antes o después del JSON.
 """
-
-
 
 PROMPT_DOCUMENTOS = """
 Eres un asistente especializado en interpretar información contenida en informes anuales, presentaciones de resultados y memorias corporativas de empresas del IBEX 35.
@@ -150,7 +157,6 @@ Formato de ejemplo:
 
 """
 
-
 PROMPT_API_EXTRAER = """
 Extrae los siguientes datos de la pregunta sobre precios de acciones del IBEX 35:
 
@@ -158,17 +164,16 @@ Extrae los siguientes datos de la pregunta sobre precios de acciones del IBEX 35
 - fecha_inicio (YYYY-MM-DD)
 - fecha_fin (YYYY-MM-DD)
 
-Usa la lógica de lenguaje natural para interpretar referencias temporales como "ayer", "la semana pasada", "el lunes", etc. Calcula fechas realistas basadas en hoy (aunque estés simulando).
+Usa la lógica de lenguaje natural para interpretar referencias temporales como "ayer", "la semana pasada", "el lunes", "el mes de enero", etc. Calcula fechas realistas basadas en hoy (aunque estés simulando).
 
 ---
 Pregunta:
-a cuanto cotizó telefonica la semana pasada
+{pregunta}
 
 ---
 ⚠️ Devuelve EXCLUSIVAMENTE un objeto JSON, sin ningún texto antes ni después.
 
-🛑 No copies el ejemplo siguiente literalmente. Solo es un ejemplo de formato:
-
+Formato de ejemplo:
 {{
   "empresa": "iberdrola",
   "fecha_inicio": "2023-03-01",
