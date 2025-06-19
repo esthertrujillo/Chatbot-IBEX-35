@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from typing import Optional
 from typing_extensions import TypedDict
-import pandas as pd
 from langgraph.graph import StateGraph, END
 from langchain_core.runnables import RunnableLambda
 from langchain_groq import ChatGroq
@@ -13,12 +12,7 @@ from langchain_groq import ChatGroq
 from qdrant_utils import buscar_en_qdrant
 from prompts import PROMPT_SERIES, PROMPT_API_EXTRAER, PROMPT_CLASIFICACION, PROMPT_API, PROMPT_RAG_DOCUMENTOS
 from cotizaciones import construir_respuesta_yfinance
-from utils.series_temporales import (
-    detectar_empresa,
-    detectar_lag,
-    cargar_modelo_lag,
-    generar_grafico_predicciones
-)
+from series_model import ejecutar_prediccion
 
 # ---------------------------------------------------------
 # 1. Configuración del modelo
@@ -53,14 +47,13 @@ class ChatbotState(TypedDict):
 
 def extract_json(text: str) -> dict:
     try:
-        text = text.strip()
-        # Intenta limpiar control chars (por ejemplo \n no escapados)
-        text = re.sub(r'(?<!\\)\n', ' ', text)  # Cambia saltos de línea sin escapar por espacio
-        if text.startswith("{") and not text.endswith("}"):
-            text += "}"
-        return json.loads(text)
+        matches = re.findall(r"\{.*?\}", text, re.DOTALL)
+        if not matches:
+            raise ValueError("No se encontró un bloque JSON en el texto.")
+        json_text = matches[0]
+        return json.loads(json_text)
     except Exception as e:
-        raise ValueError(f"❌ Error al extraer JSON: {e}\nTexto recibido:\n{text}")
+        raise ValueError(f"Error al extraer JSON: {e}\nTexto recibido:\n{text}")
 
 def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
     hoy = datetime.today()
@@ -108,73 +101,67 @@ def seleccionar_fuente(state: ChatbotState) -> str:
 
 def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
     pregunta = state["input"]
+
     prompt = PROMPT_SERIES.format(pregunta=pregunta)
     response = llm.invoke(prompt)
-
     try:
         data = extract_json(response.content)
-        respuesta_texto = data["respuesta"]
     except Exception as e:
-        respuesta_texto = "(No se pudo interpretar la respuesta del modelo)"
-        print(f"⚠️ Error interpretando JSON: {e}")
+        print(f"⚠️ Error extrayendo JSON del LLM: {e}")
+        return {
+            **state,
+            "respuesta": "❌ No se pudo extraer la información de la pregunta.",
+            "fuente": "series_temporales"
+        }
 
-    empresa = detectar_empresa(pregunta)
-    lag = detectar_lag(pregunta)
+    empresa = data.get("empresa", "BBVA").upper()
+    lag = int(data.get("lag", 1))
+    respuesta_simulada = data.get("respuesta", "")
 
-    try:
-        modelo_cargado = cargar_modelo_lag(empresa, lag)
-        df = modelo_cargado["data"]
-        modelo = modelo_cargado["modelo"]
-        img_base64 = generar_grafico_predicciones(df, empresa, lag, modelo)
-    except Exception as e:
-        img_base64 = None
-        print(f"⚠️ Error al generar gráfico para {empresa} con lag {lag}: {e}")
+    print(f"[📊 SERIES] Empresa detectada: {empresa}, lag: {lag}")
+    print(f"[📊 SERIES] Respuesta simulada: {respuesta_simulada}")
+
+    modelos_dir = os.path.join(os.getcwd(), "modelos_por_empresa")
+    path_csv = os.path.join(os.getcwd(), "IBEX35_cotizaciones_20_Limpio.csv")
+
+    resultado = ejecutar_prediccion(empresa, lag, path_csv, modelos_dir)
+    respuesta_modelo = resultado.get("respuesta", "No se pudo obtener la predicción real.")
 
     return {
         **state,
-        "respuesta": respuesta_texto,
+        "respuesta": f"{respuesta_simulada}\n\n📈 Predicción real:\n{respuesta_modelo}",
         "fuente": "series_temporales",
-        "empresa": empresa,
-        "grafico_base64": img_base64
+        "empresa": empresa
     }
 
-
 # ---------------------------------------------------------
-# 7. Nodo: Documentos financieros -> Llama a Qdrant
+# 7. Nodo: Documentos financieros -> Qdrant
 # ---------------------------------------------------------
 
 def consulta_qdrant(state: ChatbotState) -> ChatbotState:
     pregunta = state["input"]
     
-    # Buscar fragmentos relevantes en Qdrant
     resultados = buscar_en_qdrant(pregunta)
     fragmentos = [r.payload.get("fragmento", "") for r in resultados]
     contexto = "\n\n".join(fragmentos)
 
-    # Construir el prompt RAG usando el contexto y la pregunta
     prompt_rag = PROMPT_RAG_DOCUMENTOS.format(contexto=contexto, pregunta=pregunta)
-
-    # Invocar el LLM
     respuesta_llm = llm.invoke(prompt_rag).content.strip()
 
-    # Intentar extraer el JSON con la respuesta
     try:
         data = extract_json(respuesta_llm)
         respuesta_final = data.get("respuesta", "(El modelo no devolvió una clave 'respuesta').")
     except Exception as e:
         print(f"⚠️ Error extrayendo JSON del LLM: {e}")
-        respuesta_final = respuesta_llm  # fallback: muestra el texto bruto del LLM
+        respuesta_final = respuesta_llm
 
-    # 👉 APLICAMOS FORMATO
-    respuesta_final = respuesta_final.replace(". ", ".  \n")  # salto de línea tras cada punto
-    respuesta_final = respuesta_final.replace("- ", "• ")   # cambia guiones por bullets
+    respuesta_final = respuesta_final.replace(". ", ".  \n").replace("- ", "• ")
 
-    # Devolvemos el estado actualizado
     return {
         **state,
         "respuesta": respuesta_final,
         "fuente": "qdrant",
-        "fragmentos": fragmentos  # si quieres mostrar los fragmentos en Streamlit
+        "fragmentos": fragmentos
     }
 
 # ---------------------------------------------------------
@@ -244,24 +231,19 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
 
 def build_graph():
     graph = StateGraph(ChatbotState)
-
-    # Añadimos los nodos
     graph.add_node("clasificar", RunnableLambda(clasificar_intencion))
     graph.add_node("series_temporales", RunnableLambda(analizar_series_temporales))
     graph.add_node("consulta_qdrant", RunnableLambda(consulta_qdrant))
     graph.add_node("consulta_api", RunnableLambda(consultar_api_financiera))
 
-    # Punto de entrada
     graph.set_entry_point("clasificar")
 
-    # Definimos cómo se mueve entre nodos según la clasificación
     graph.add_conditional_edges("clasificar", seleccionar_fuente, {
         "series_temporales": "series_temporales",
-        "documentos_financieros": "consulta_qdrant",  # Las preguntas sobre documentos van al nodo Qdrant (RAG)
+        "documentos_financieros": "consulta_qdrant",
         "consulta_api": "consulta_api"
     })
 
-    # Finalizamos el flujo en estos nodos
     graph.add_edge("series_temporales", END)
     graph.add_edge("consulta_qdrant", END)
     graph.add_edge("consulta_api", END)

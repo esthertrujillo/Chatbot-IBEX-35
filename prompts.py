@@ -3,12 +3,12 @@ Actúa como un sistema de clasificación de preguntas financieras relacionadas c
 
 Tu tarea es leer una pregunta del usuario y clasificarla en **una y solo una** de las siguientes categorías:
 
-- "series_temporales" → si pregunta por la evolución, rendimiento, estabilidad o tendencia de una acción en el tiempo.
-- "documentos_financieros" → si hace referencia a beneficios, informes, resultados, cuentas, deuda, EBITDA, memorias o aspectos contables.
-- "consulta_api" → si pide directamente el precio medio, actual o promedio de una acción en un rango de fechas, sin análisis adicional.
+- **series_temporales** → si pregunta por la evolución, rendimiento, estabilidad, tendencia o predicción futura de una acción en el tiempo. Incluye preguntas que mencionen términos como "mañana", "próximo día", "próxima semana", "7 días", "15 días", "en el futuro", "predicción", "proyección", "comportamiento futuro".
+- **documentos_financieros** → si hace referencia a beneficios, informes, resultados, cuentas, deuda, EBITDA, memorias o aspectos contables.
+- **consulta_api** → si pide directamente el precio medio, actual o promedio de una acción en un rango de fechas, sin análisis adicional.
 
 🟨 Devuelve únicamente el nombre exacto de la categoría:  
-**series_temporales**, **documentos_financieros**, o **consulta_api**  
+series_temporales, documentos_financieros o consulta_api  
 No escribas comillas, ni texto adicional.
 
 ---
@@ -24,9 +24,21 @@ No escribas comillas, ni texto adicional.
 **Pregunta:** ¿Cuál fue el precio medio de Iberdrola en abril de 2022?  
 **Respuesta:** consulta_api
 
+**Pregunta:** ¿Cuál es la cotización de mañana de BBVA?  
+**Respuesta:** series_temporales
+
+**Pregunta:** Predicción para Iberdrola la próxima semana  
+**Respuesta:** series_temporales
+
+**Pregunta:** ¿Qué comportamiento se espera de Santander en los próximos 15 días?  
+**Respuesta:** series_temporales
+
+**Pregunta:** Dame el precio actual de Telefónica  
+**Respuesta:** consulta_api
+
 ---
 
-**Pregunta del usuario:**
+**Pregunta del usuario:**  
 {pregunta}
 """
 
@@ -57,19 +69,52 @@ Ejemplo:
 PROMPT_SERIES = """
 Actúa como un analista financiero experto en series temporales de acciones del IBEX 35.
 
-Tu tarea es:
-1. Analizar la pregunta del usuario para entender qué empresa del IBEX 35 menciona.
-2. Inferir si se refiere a una evolución reciente (1 día), semanal (7 días) o más larga (15 días).
-3. Simular una respuesta basada en el comportamiento de la acción en ese período, aunque no tengas acceso directo a los datos.
+Tu tarea es analizar la siguiente pregunta del usuario y extraer la siguiente información:
+1️⃣ **Empresa**: Identifica claramente la empresa del IBEX 35 mencionada. Si no se menciona una empresa específica, asume 'BBVA' como valor por defecto.
+2️⃣ **Lag (horizonte de predicción)**: Determina el número de días que el usuario quiere predecir.
+    - Si la pregunta sugiere un análisis o predicción de "mañana", "próximo día", "día siguiente" → lag = 1
+    - Si menciona "próxima semana", "7 días" → lag = 7
+    - Si menciona "próximos 15 días", "15 días" → lag = 15
+    - Si no queda claro, el lag por defecto es 1
+3️⃣ **Respuesta simulada**: Genera una respuesta concisa y profesional simulando un análisis de la tendencia de la acción en el período identificado.
 
-Pregunta del usuario:
+---
+
+### Ejemplos
+
+Pregunta: ¿Cuál es la cotización de BBVA mañana?  
+Salida:
+{{
+    "respuesta": "Se espera que BBVA tenga una ligera subida en la próxima sesión bursátil.",
+    "empresa": "BBVA",
+    "lag": 1
+}}
+
+Pregunta: Predicción para Iberdrola la próxima semana  
+Salida:
+{{
+    "respuesta": "Iberdrola podría experimentar estabilidad durante los próximos 7 días.",
+    "empresa": "IBERDROLA",
+    "lag": 7
+}}
+
+Pregunta: ¿Qué pasará con Santander en los próximos 15 días?  
+Salida:
+{{
+    "respuesta": "Santander podría mostrar cierta volatilidad en las dos próximas semanas.",
+    "empresa": "SANTANDER",
+    "lag": 15
+}}
+
+---
+
+**Pregunta del usuario:**  
 {pregunta}
 
-Devuelve un objeto JSON con la clave "respuesta", por ejemplo:
-{{
-  "respuesta": "Acciona Energía ha mostrado una tendencia bajista en la última semana, con un ligero repunte en los últimos dos días."
-}}
+⚠ Devuelve EXCLUSIVAMENTE un objeto JSON con las claves: respuesta, empresa, lag.  
+No añadas texto adicional antes o después del JSON.
 """
+
 
 
 PROMPT_DOCUMENTOS = """
