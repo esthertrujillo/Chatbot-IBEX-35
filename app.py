@@ -1,35 +1,48 @@
-# app.py
+import streamlit as st
+from main_graph import graph
+import torch
+torch.classes = None  # Para evitar problemas con dependencias si usas Groq + LangChain
 
-from main_graph import build_graph
+st.set_page_config(page_title="Chatbot IBEX 35", page_icon="💬")
+st.title("🤖 Chatbot Financiero IBEX 35")
+st.markdown("Consulta precios históricos de acciones del IBEX 35 o analiza documentos financieros usando lenguaje natural.")
 
-def main():
-    print("🤖 Chatbot Financiero IBEX 35 (Groq + LangGraph)\n")
-    print("Escribe una pregunta relacionada con cotizaciones, informes financieros o precios actuales.")
-    print("Escribe 'salir' para terminar.\n")
+# Inicializar el historial de la conversación
+if "historial" not in st.session_state:
+    st.session_state.historial = []
 
-    # Cargamos el grafo
-    grafo = build_graph()
+# Entrada del usuario
+pregunta = st.text_input("🧑 Tú:", placeholder="Ej: ¿Cuál es la cotización de mañana de BBVA?")
 
-    while True:
-        try:
-            pregunta = input("🧑 Tú: ").strip()
-            if not pregunta:
-                print("⚠️ Por favor, escribe una pregunta.")
-                continue
+if st.button("Enviar") and pregunta:
+    try:
+        result = graph.invoke({"input": pregunta})
+        respuesta = result.get("respuesta", "Sin respuesta generada.")
+        fuente = result.get("fuente", "desconocida")
 
-            if pregunta.lower() in ["salir", "exit", "quit"]:
-                print("👋 Hasta la próxima.")
-                break
+        # Añadir al historial
+        st.session_state.historial.append(("Tú", pregunta))
+        st.session_state.historial.append((f"Bot (Fuente: {fuente})", respuesta))
 
-            # Ejecutar el flujo LangGraph
-            result = grafo.invoke({"input": pregunta})
-            print(f"🤖 Bot ({result.get('fuente', 'desconocido')}): {result.get('respuesta', 'Sin respuesta generada.')}\n")
+        # Mostrar la respuesta principal
+        st.markdown(f"**Bot (Fuente: {fuente})**")
+        st.markdown(respuesta)
 
-        except KeyboardInterrupt:
-            print("\n👋 Interrumpido por el usuario. Hasta pronto.")
-            break
-        except Exception as e:
-            print("⚠️ Error procesando la consulta:", str(e))
+        # Mostrar gráfico si aplica
+        if fuente == "series_temporales" and result.get("grafico_base64"):
+            st.image("data:image/png;base64," + result["grafico_base64"])
 
-if __name__ == "__main__":
-    main()
+        # Mostrar fragmentos usados si fue Qdrant/RAG
+        if fuente == "qdrant" and result.get("fragmentos"):
+            with st.expander("🔍 Fragmentos usados (RAG)"):
+                for frag in result["fragmentos"]:
+                    st.markdown(f"- {frag}")
+
+    except Exception as e:
+        st.error(f"⚠️ Error procesando la consulta: {e}")
+
+# Mostrar el historial completo
+if st.session_state.historial:
+    st.markdown("## 📝 Historial de la conversación")
+    for autor, texto in st.session_state.historial:
+        st.markdown(f"**{autor}:** {texto}")
