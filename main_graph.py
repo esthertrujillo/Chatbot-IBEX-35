@@ -40,20 +40,26 @@ class ChatbotState(TypedDict):
     fecha_inicio: Optional[str]
     fecha_fin: Optional[str]
     grafico_base64: Optional[str]
-
+    
 # ---------------------------------------------------------
 # 3. Funciones auxiliares
 # ---------------------------------------------------------
 
 def extract_json(text: str) -> dict:
     try:
-        matches = re.findall(r"\{.*?\}", text, re.DOTALL)
+        # Buscar el bloque de JSON en el texto
+        matches = re.findall(r"\{.*?\}", text, re.DOTALL)  # Buscar todo lo que parece un JSON
         if not matches:
             raise ValueError("No se encontró un bloque JSON en el texto.")
+        
+        # El primer bloque encontrado se considera el JSON
         json_text = matches[0]
+        
+        # Intentamos cargar el JSON
         return json.loads(json_text)
     except Exception as e:
         raise ValueError(f"Error al extraer JSON: {e}\nTexto recibido:\n{text}")
+
 
 def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
     hoy = datetime.today()
@@ -95,16 +101,18 @@ def clasificar_intencion(state: ChatbotState) -> ChatbotState:
 def seleccionar_fuente(state: ChatbotState) -> str:
     return state["tipo_pregunta"]
 
-# ---------------------------------------------------------
+## ---------------------------------------------------------
 # 6. Nodo: Series temporales
 # ---------------------------------------------------------
 
 def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
     pregunta = state["input"]
 
+    # Formatear el prompt con la pregunta del usuario
     prompt = PROMPT_SERIES.format(pregunta=pregunta)
     response = llm.invoke(prompt)
     try:
+        # Extraer la información en formato JSON
         data = extract_json(response.content)
     except Exception as e:
         print(f"⚠️ Error extrayendo JSON del LLM: {e}")
@@ -114,6 +122,7 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
             "fuente": "series_temporales"
         }
 
+    # Obtener la empresa, el lag y la respuesta simulada
     empresa = data.get("empresa", "BBVA").upper()
     lag = int(data.get("lag", 1))
     respuesta_simulada = data.get("respuesta", "")
@@ -121,18 +130,23 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
     print(f"[📊 SERIES] Empresa detectada: {empresa}, lag: {lag}")
     print(f"[📊 SERIES] Respuesta simulada: {respuesta_simulada}")
 
+    # Aquí, si lo deseas, puedes incluir la predicción real basada en tus modelos.
+    # Los pasos adicionales para obtener la predicción real podrían seguir siendo relevantes
     modelos_dir = os.path.join(os.getcwd(), "modelos_por_empresa")
     path_csv = os.path.join(os.getcwd(), "IBEX35_cotizaciones_20_Limpio.csv")
 
+    # Llamar al modelo para obtener la predicción real (si es necesario)
     resultado = ejecutar_prediccion(empresa, lag, path_csv, modelos_dir)
     respuesta_modelo = resultado.get("respuesta", "No se pudo obtener la predicción real.")
 
+    # Devolver la respuesta final sin detalles adicionales como RMSE
     return {
         **state,
-        "respuesta": f"{respuesta_simulada}\n\n📈 Predicción real:\n{respuesta_modelo}",
+        "respuesta": f"{respuesta_simulada}",  # Solo la respuesta simulada
         "fuente": "series_temporales",
         "empresa": empresa
     }
+
 
 # ---------------------------------------------------------
 # 7. Nodo: Documentos financieros -> Qdrant
@@ -167,23 +181,37 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
 # ---------------------------------------------------------
 # 8. Nodo: Consulta API financiera
 # ---------------------------------------------------------
-
 def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     pregunta = state["input"]
     print(f"[🌐 Nodo API] Pregunta: {pregunta}")
     
+    # Extraer parámetros desde el LLM
     extraction_prompt = PROMPT_API_EXTRAER.format(pregunta=pregunta)
+    print(f"[🌐 Nodo API] Prompt de extracción:\n{extraction_prompt}")
+    
     response = llm.invoke(extraction_prompt)
     llm_response_content = response.content.strip()
-    print(f"[🌐 Nodo API] Prompt extracción:\n{extraction_prompt}")
-    print(f"[🌐 Nodo API] Respuesta LLM para extracción:\n{llm_response_content}")
-
+    # --- AÑADE O ASEGÚRATE DE TENER ESTA LÍNEA DE IMPRESIÓN ---
+    print(f"[🌐 Nodo API] Respuesta LLM para extracción CRUDA:\n'{llm_response_content}'")
+    # -
     try:
+        # Extraer datos del JSON
         data = extract_json(llm_response_content)
+        print(f"[🌐 Nodo API] Datos extraídos del LLM:\n{data}")
+
+        # Normalizar el nombre de la empresa
         empresa = data.get("empresa")
+        if not empresa:
+            print("⚠️ No se pudo extraer la empresa del JSON")
+        empresa_normalizada = empresa.strip().lower() if empresa else None  # Normalizar a minúsculas y quitar espacios
+        print(f"[🌐 Nodo API] Empresa normalizada: {empresa_normalizada}")
+        
+        # Verificar que las fechas sean válidas
         fecha_inicio = data.get("fecha_inicio")
         fecha_fin = data.get("fecha_fin")
         fecha_inicio, fecha_fin = normalizar_fechas_relativas(fecha_inicio, fecha_fin)
+        print(f"[🌐 Nodo API] Fechas normalizadas: {fecha_inicio}, {fecha_fin}")
+
     except Exception as e:
         print(f"⚠️ Error extrayendo parámetros: {e}")
         return {
@@ -192,35 +220,44 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
             "fuente": "api"
         }
 
-    if not all([empresa, fecha_inicio, fecha_fin]):
+    # Validación de los parámetros clave
+    if not all([empresa_normalizada, fecha_inicio, fecha_fin]):
+        print(f"⚠️ Faltan parámetros clave: empresa={empresa_normalizada}, fecha_inicio={fecha_inicio}, fecha_fin={fecha_fin}")
         return {
             **state,
             "respuesta": "❌ Faltan parámetros clave: empresa, fecha de inicio o fin.",
             "fuente": "api"
         }
 
+    # Generación del prompt para simulación
     simulacion_prompt = PROMPT_API.format(pregunta=pregunta)
-    simulacion_response = llm.invoke(simulacion_prompt)
     print(f"[🌐 Nodo API] Prompt de simulación:\n{simulacion_prompt}")
+    
+    simulacion_response = llm.invoke(simulacion_prompt)
     print(f"[🌐 Nodo API] Respuesta simulada:\n{simulacion_response.content}")
 
     try:
+        # Extraer la respuesta simulada
         data_simulada = extract_json(simulacion_response.content)
         respuesta_simulada = data_simulada.get("respuesta", "(El LLM no devolvió una clave 'respuesta')")
+        print(f"[🌐 Nodo API] Respuesta simulada extraída: {respuesta_simulada}")
     except Exception as e:
         print(f"⚠️ Error extrayendo respuesta simulada: {e}")
         respuesta_simulada = "(No se pudo generar una respuesta simulada del LLM)"
 
-    resultado = construir_respuesta_yfinance(empresa, fecha_inicio, fecha_fin)
-    print(f"[🌐 Nodo API] Respuesta real:\n{resultado['respuesta']}")
+    # Obtener los datos reales de la API financiera
+    resultado = construir_respuesta_yfinance(empresa_normalizada, fecha_inicio, fecha_fin)
+    print(f"[🌐 Nodo API] Resultado de la API financiera:\n{resultado['respuesta']}")
 
+    # Combina la respuesta simulada con los datos reales
     respuesta_final = f"{respuesta_simulada}\n\n📊 Datos reales:\n{resultado['respuesta']}"
+    print(f"[🌐 Nodo API] Respuesta final combinada:\n{respuesta_final}")
 
     return {
         **state,
         "respuesta": respuesta_final,
         "fuente": "api",
-        "empresa": empresa,
+        "empresa": empresa_normalizada,
         "fecha_inicio": fecha_inicio,
         "fecha_fin": fecha_fin
     }
