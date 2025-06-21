@@ -1,3 +1,5 @@
+# cotizaciones.py
+
 import yfinance as yf
 from datetime import datetime
 
@@ -7,13 +9,10 @@ EMPRESAS_IBEX = {
     "telefonica": "TEF.MC",
     "repsol": "REP.MC",
     "bbva": "BBVA.MC",
-    # Añadir proximamente todas las empresas del IBEX 35
 }
 
 def obtener_ticker(empresa_nombre: str) -> str:
     return EMPRESAS_IBEX.get(empresa_nombre.lower())
-
-# Recibe el nombre y maneja mayúsculas/minúsculas para evitar errores del usuario
 
 def es_fecha_valida(fecha: str) -> bool:
     try:
@@ -21,22 +20,20 @@ def es_fecha_valida(fecha: str) -> bool:
         return True
     except:
         return False
-# Comprueba si una fecha está en formato correcto
 
 def consultar_precio_medio(ticker: str, fecha_inicio: str, fecha_fin: str) -> float:
-    df = yf.download(ticker, start=fecha_inicio, end=fecha_fin, progress=False)
-
-    if df.empty:
-        return None
-
     try:
+        df = yf.download(ticker, start=fecha_inicio, end=fecha_fin, progress=False)
+
+        if df.empty:
+            return None
+
+        # Calcular el precio promedio
         precio_medio = df["Close"].mean()
         return round(float(precio_medio), 2)
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ Error al consultar datos: {e}")
         return None
-#Descarga los datos históricos desde Yahoo Finance entre las fechas indicadas 
-#y calcula el precio medio de cierre (Close) en ese periodo. 
-
 
 def construir_respuesta_yfinance(empresa: str, fecha_inicio: str, fecha_fin: str) -> dict:
     ticker = obtener_ticker(empresa)
@@ -53,5 +50,3 @@ def construir_respuesta_yfinance(empresa: str, fecha_inicio: str, fecha_fin: str
     return {
         "respuesta": f"✅ El precio medio de las acciones de {empresa.capitalize()} entre {fecha_inicio} y {fecha_fin} fue de {precio_medio}€."
     }
-
-#finalmente llamada a la api y da la respuesta 

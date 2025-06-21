@@ -191,9 +191,9 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     
     response = llm.invoke(extraction_prompt)
     llm_response_content = response.content.strip()
-    # --- AÑADE O ASEGÚRATE DE TENER ESTA LÍNEA DE IMPRESIÓN ---
+    
     print(f"[🌐 Nodo API] Respuesta LLM para extracción CRUDA:\n'{llm_response_content}'")
-    # -
+    
     try:
         # Extraer datos del JSON
         data = extract_json(llm_response_content)

@@ -189,30 +189,36 @@ Dado que esta es una consulta a la API de YFinance, simplemente responde con los
 No incluyas ninguna otra información adicional ni interpretación.
 """
 PROMPT_API_EXTRAER = """
-**¡SOLO JSON!** Extrae los siguientes datos de la pregunta sobre **precios históricos de acciones** del IBEX 35 y **devuélvelos EXCLUSIVAMENTE como un objeto JSON**. NO incluyas ningún texto adicional, comentarios, ni formato fuera del propio JSON. El JSON debe empezar inmediatamente.
+Extrae los siguientes datos de la pregunta sobre **precios de acciones del IBEX 35**:
 
-- **empresa**: El nombre de la empresa mencionada en la pregunta, en minúsculas, sin tildes ni mayúsculas. Si no se especifica, usa un valor razonable (ej. "bbva" si es el contexto).
-- **fecha_inicio**: La fecha de inicio del rango temporal mencionado, en formato YYYY-MM-DD.
-- **fecha_fin**: La fecha de fin del rango temporal mencionado, en formato YYYY-MM-DD.
+- **empresa** (en minúsculas)
+- **fecha_inicio** (YYYY-MM-DD)
+- **fecha_fin** (YYYY-MM-DD)
 
-Utiliza la lógica de lenguaje natural para interpretar referencias temporales como "ayer", "la semana pasada", "el lunes", "el mes pasado", etc., y calcula fechas realistas basadas en la fecha actual (hoy es 2025-06-21).
+Si no se menciona el año explícitamente, *asume que se refiere al año 2025*.
 
-**Detalles a considerar**:
-- Si la pregunta menciona **"la semana pasada"**, debes identificar las fechas correspondientes a los **últimos 7 días hábiles** antes de hoy (excluyendo fines de semana).
-- Si menciona **"ayer"**, debes identificar la fecha de **ayer** (2025-06-20).
-- Si menciona un **rango de fechas específico**, como "abril de 2022", usa ese rango específico.
+🟢 **Consejo adicional**:
+Si la pregunta contiene expresiones como "hoy", "ayer" o "última semana", utiliza la fecha actual **{hoy}** como referencia y ajusta las fechas:
+
+- **"hoy"** → fecha_inicio = fecha_fin = **{hoy}**
+- **"ayer"** → fecha_inicio = fecha_fin = **{ayer}**
+- **"última semana"** → fecha_inicio = **{hoy_menos_7}**, fecha_fin = **{hoy}**
 
 ---
 
+Responde **EXCLUSIVAMENTE** en formato JSON, sin explicaciones, texto adicional o puntuación extra.  
+La respuesta debe ser **SOLAMENTE** el objeto JSON.
+
+**Ejemplo de formato de respuesta:**
+{
+  "empresa": "iberdrola",
+  "fecha_inicio": "2023-03-01",
+  "fecha_fin": "2023-03-30"
+}
+
+---
 **Pregunta del usuario**:
 {pregunta}
 
----
-
-**FORMATO DE RESPUESTA REQUERIDO (¡SOLO EL JSON!):**
-{
-  "empresa": "telefonica",
-  "fecha_inicio": "2023-03-01",
-  "fecha_fin": "2023-03-07"
-}
 """
+
