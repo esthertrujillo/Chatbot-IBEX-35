@@ -248,7 +248,7 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
         empresa = data.get("empresa")
         if not empresa:
             print("⚠️ No se pudo extraer la empresa del JSON")
-        empresa_normalizada = empresa.strip().lower() if empresa else None  # Normalizar a minúsculas y quitar espacios
+        empresa_normalizada = empresa.strip().lower() if empresa else None  
         print(f"[🌐 Nodo API] Empresa normalizada: {empresa_normalizada}")
         
         # Verificar que las fechas sean válidas
@@ -274,33 +274,14 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
             "fuente": "api"
         }
 
-    # Generación del prompt para simulación
-    simulacion_prompt = PROMPT_API.format(pregunta=pregunta)
-    print(f"[🌐 Nodo API] Prompt de simulación:\n{simulacion_prompt}")
-    
-    simulacion_response = llm.invoke(simulacion_prompt)
-    print(f"[🌐 Nodo API] Respuesta simulada:\n{simulacion_response.content}")
-
-    try:
-        # Extraer la respuesta simulada
-        data_simulada = extract_json(simulacion_response.content)
-        respuesta_simulada = data_simulada.get("respuesta", "(El LLM no devolvió una clave 'respuesta')")
-        print(f"[🌐 Nodo API] Respuesta simulada extraída: {respuesta_simulada}")
-    except Exception as e:
-        print(f"⚠️ Error extrayendo respuesta simulada: {e}")
-        respuesta_simulada = "(No se pudo generar una respuesta simulada del LLM)"
-
     # Obtener los datos reales de la API financiera
     resultado = construir_respuesta_yfinance(empresa_normalizada, fecha_inicio, fecha_fin)
     print(f"[🌐 Nodo API] Resultado de la API financiera:\n{resultado['respuesta']}")
 
-    # Combina la respuesta simulada con los datos reales
-    respuesta_final = f"{respuesta_simulada}\n\n📊 Datos reales:\n{resultado['respuesta']}"
-    print(f"[🌐 Nodo API] Respuesta final combinada:\n{respuesta_final}")
-
+    # Devolver solo el dato real
     return {
         **state,
-        "respuesta": respuesta_final,
+        "respuesta": resultado['respuesta'],
         "fuente": "api",
         "empresa": empresa_normalizada,
         "fecha_inicio": fecha_inicio,

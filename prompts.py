@@ -169,9 +169,9 @@ No añadas texto adicional ni detalles como RMSE, gráficos o fragmentos. Solo l
 PROMPT_API = """
 Eres un sistema especializado en proporcionar **datos históricos de precios de acciones** del IBEX 35 utilizando la API de **YFinance**.
 
-Tu tarea es consultar el **precio promedio** de la acción de una empresa del IBEX 35 para un **rango temporal** específico que el usuario solicite. 
+Tu tarea es consultar el **precio promedio** de la acción de una empresa del IBEX 35 para un **rango temporal** específico que el usuario solicite.
 
-Dado que esta es una consulta a la API de YFinance, simplemente responde con los **datos históricos reales** obtenidos. La API descargará los datos y devolverá el **precio promedio** de la acción en el periodo solicitado.
+Dado que esta es una consulta a la API de YFinance, simplemente responde con los **datos históricos reales** obtenidos. La API descargará los datos y devolverá el **precio promedio** de la acción en el período solicitado.
 
 ---
 
@@ -182,12 +182,17 @@ Dado que esta es una consulta a la API de YFinance, simplemente responde con los
 
 ⚠️ Devuelve **exclusivamente** la respuesta con el precio promedio obtenido de la API, siguiendo el siguiente formato:
 
-- El precio promedio de las acciones de **[empresa]** entre **[fecha_inicio]** y **[fecha_fin]** fue de **[precio_promedio] €**.
+✅ El precio medio de las acciones de **[Empresa]** entre **[YYYY-MM-DD]** y **[YYYY-MM-DD]** fue de **[Precio] €**.
+
+💡 Detalles importantes:
+- [Empresa]: El nombre real de la empresa con la primera letra en mayúscula (por ejemplo, Iberdrola, Repsol).
+- [Precio]: Solo el número redondeado con dos decimales (por ejemplo, 9.22), sin `dtype`, `Ticker`, etc.
+- No incluyas ninguna otra información adicional, ni interpretaciones, ni metadatos técnicos.
+
+---
 
 **Ejemplo de formato esperado**:
-"El precio promedio de las acciones de **BBVA** entre **2023-03-01** y **2023-03-07** fue de **12.28 €**."
-
-No incluyas ninguna otra información adicional ni interpretación.
+✅ El precio medio de las acciones de **Iberdrola** entre **2023-04-01** y **2023-04-30** fue de **9.22 €**.
 """
 
 PROMPT_API_EXTRAER = """
