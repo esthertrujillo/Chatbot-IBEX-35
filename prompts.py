@@ -165,6 +165,7 @@ Salida:
 
 No añadas texto adicional ni detalles como RMSE, gráficos o fragmentos. Solo la frase de predicción.
 """
+
 PROMPT_API = """
 Eres un sistema especializado en proporcionar **datos históricos de precios de acciones** del IBEX 35 utilizando la API de **YFinance**.
 
@@ -188,6 +189,7 @@ Dado que esta es una consulta a la API de YFinance, simplemente responde con los
 
 No incluyas ninguna otra información adicional ni interpretación.
 """
+
 PROMPT_API_EXTRAER = """
 Extrae los siguientes datos de la pregunta sobre **precios de acciones del IBEX 35**:
 
@@ -195,14 +197,15 @@ Extrae los siguientes datos de la pregunta sobre **precios de acciones del IBEX 
 - **fecha_inicio** (YYYY-MM-DD)
 - **fecha_fin** (YYYY-MM-DD)
 
-Si no se menciona el año explícitamente, *asume que se refiere al año 2025*.
+Extrae los siguientes datos de la pregunta sobre precios de acciones del IBEX 35:
 
-🟢 **Consejo adicional**:
-Si la pregunta contiene expresiones como "hoy", "ayer" o "última semana", utiliza la fecha actual **{hoy}** como referencia y ajusta las fechas:
+- empresa (en minúsculas, sin tildes ni mayúsculas, sin confundir con otras empresas)
+- fecha_inicio (YYYY-MM-DD)
+- fecha_fin (YYYY-MM-DD)
 
-- **"hoy"** → fecha_inicio = fecha_fin = **{hoy}**
-- **"ayer"** → fecha_inicio = fecha_fin = **{ayer}**
-- **"última semana"** → fecha_inicio = **{hoy_menos_7}**, fecha_fin = **{hoy}**
+Usa la lógica de lenguaje natural para interpretar referencias temporales como "ayer", "la semana pasada", "el lunes", etc. Calcula fechas realistas basadas en hoy (aunque estés simulando).
+
+En este caso, si se menciona una *fecha específica, **usa esa fecha como la fecha de inicio y fin*.
 
 ---
 
@@ -210,11 +213,11 @@ Responde **EXCLUSIVAMENTE** en formato JSON, sin explicaciones, texto adicional 
 La respuesta debe ser **SOLAMENTE** el objeto JSON.
 
 **Ejemplo de formato de respuesta:**
-{
+{{
   "empresa": "iberdrola",
   "fecha_inicio": "2023-03-01",
-  "fecha_fin": "2023-03-30"
-}
+  "fecha_fin": "2023-03-30" 
+}}
 
 ---
 **Pregunta del usuario**:

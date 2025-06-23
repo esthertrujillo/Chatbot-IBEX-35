@@ -60,23 +60,67 @@ def extract_json(text: str) -> dict:
     except Exception as e:
         raise ValueError(f"Error al extraer JSON: {e}\nTexto recibido:\n{text}")
 
-
 def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
-    hoy = datetime.today()
-    
-    def get_last_monday():
-        return hoy - timedelta(days=hoy.weekday() + 7)
+    hoy_dt = datetime.today() # Renombrado para evitar conflicto con la cadena 'hoy'
+
+    def get_last_monday(date_ref):
+        # Calculate last Monday relative to the reference date
+        return date_ref - timedelta(days=date_ref.weekday()) - timedelta(days=7)
 
     def to_str(date_obj):
         return date_obj.strftime("%Y-%m-%d")
-    
-    if fecha_inicio is None or "lunes pasado" in fecha_inicio.lower():
-        fecha_inicio = to_str(get_last_monday())
-    if fecha_fin is None or "lunes pasado" in fecha_fin.lower():
-        fecha_fin = to_str(get_last_monday())
+
+    # Handle fecha_inicio
+    if fecha_inicio:
+        fecha_inicio_lower = fecha_inicio.lower()
+        if "lunes pasado" in fecha_inicio_lower:
+            fecha_inicio = to_str(get_last_monday(hoy_dt))
+        elif "hoy" in fecha_inicio_lower:
+            fecha_inicio = to_str(hoy_dt)
+        # Add more relative date handling here if needed
+        # elif "ayer" in fecha_inicio_lower:
+        #     fecha_inicio = to_str(hoy_dt - timedelta(days=1))
+        # elif "esta semana" in fecha_inicio_lower:
+        #     fecha_inicio = to_str(hoy_dt - timedelta(days=hoy_dt.weekday())) # Monday of current week
+
+    # Handle fecha_fin
+    if fecha_fin:
+        fecha_fin_lower = fecha_fin.lower()
+        if "lunes pasado" in fecha_fin_lower:
+            fecha_fin = to_str(get_last_monday(hoy_dt))
+        elif "hoy" in fecha_fin_lower:
+            fecha_fin = to_str(hoy_dt)
+        # Add more relative date handling here if needed
+        # elif "ayer" in fecha_fin_lower:
+        #     fecha_fin = to_str(hoy_dt - timedelta(days=1))
+        # elif "esta semana" in fecha_fin_lower:
+        #     fecha_fin = to_str(hoy_dt + timedelta(days=6 - hoy_dt.weekday())) # Sunday of current week
+
+
+    # If dates are still not normalized (e.g., they were specific dates like "2022-04-01")
+    # You might want to add validation here to ensure they are in the correct format
+    # or attempt to parse them. For example:
+    if fecha_inicio and not re.match(r"\d{4}-\d{2}-\d{2}", fecha_inicio):
+        try:
+            # Attempt to parse if it's not a relative term but also not in YYYY-MM-DD
+            parsed_date = datetime.strptime(fecha_inicio, "%Y-%m-%d") # Or other expected formats
+            fecha_inicio = to_str(parsed_date)
+        except ValueError:
+            print(f"Advertencia: No se pudo normalizar fecha_inicio: {fecha_inicio}")
+            # Optionally set to None or a default if parsing fails
+            fecha_inicio = None # Or raise an error
+            # If you expect the LLM to provide YYYY-MM-DD, this might indicate an LLM issue
+
+    if fecha_fin and not re.match(r"\d{4}-\d{2}-\d{2}", fecha_fin):
+        try:
+            parsed_date = datetime.strptime(fecha_fin, "%Y-%m-%d")
+            fecha_fin = to_str(parsed_date)
+        except ValueError:
+            print(f"Advertencia: No se pudo normalizar fecha_fin: {fecha_fin}")
+            fecha_fin = None
+
 
     return fecha_inicio, fecha_fin
-
 # ---------------------------------------------------------
 # 4. Nodo: Clasificación
 # ---------------------------------------------------------
@@ -181,6 +225,7 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
 # ---------------------------------------------------------
 # 8. Nodo: Consulta API financiera
 # ---------------------------------------------------------
+
 def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     pregunta = state["input"]
     print(f"[🌐 Nodo API] Pregunta: {pregunta}")
