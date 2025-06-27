@@ -21,3 +21,7 @@ ipython>=8.0.0
 
 # Interfaz 
 streamlit>=1.30.0
+
+#matplotlib scikit-learn qdrant-client sentence-transformers torch
+
+#pip install streamlit langgraph langchain-groq python-dotenv yfinance scikit-learn pandas numpy matplotlib seaborn joblib qdrant-client sentence-transformers xgboost lightgbm
