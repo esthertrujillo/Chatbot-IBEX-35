@@ -1,7 +1,7 @@
 import os
 import re
 import json
-from datetime import datetime, timedelta 
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from typing import Optional
 from typing_extensions import TypedDict
@@ -10,7 +10,8 @@ from langchain_core.runnables import RunnableLambda
 from langchain_groq import ChatGroq
 
 from qdrant_utils import buscar_en_qdrant
-from prompts import PROMPT_SERIES, PROMPT_API_EXTRAER, PROMPT_CLASIFICACION, PROMPT_API, PROMPT_RAG_DOCUMENTOS
+# Asegúrate de que PROMPT_CLASIFICACION en prompts.py devuelva JSON
+from prompts import PROMPT_SERIES, PROMPT_API_EXTRAER, PROMPT_CLASIFICACION, PROMPT_RAG_DOCUMENTOS
 from cotizaciones import construir_respuesta_yfinance
 from series_model import ejecutar_prediccion
 
@@ -32,7 +33,7 @@ llm = ChatGroq(
 # ---------------------------------------------------------
 
 class ChatbotState(TypedDict):
-    input: str
+    input: str # Pregunta original del usuario
     empresa: Optional[str]
     tipo_pregunta: Optional[str]
     respuesta: Optional[str]
@@ -40,7 +41,11 @@ class ChatbotState(TypedDict):
     fecha_inicio: Optional[str]
     fecha_fin: Optional[str]
     grafico_base64: Optional[str]
-    
+    historial_preguntas: Optional[list[str]] # Para las últimas 3 preguntas del usuario (originales)
+    historial_completo: Optional[list[dict]] # Para guardar preguntas y respuestas completas
+    pregunta_completa: Optional[str] # Nueva variable para la pregunta re-escrita y desambiguada
+    fecha_actual: Optional[str] # Campo para la fecha actual
+
 # ---------------------------------------------------------
 # 3. Funciones auxiliares
 # ---------------------------------------------------------
@@ -48,23 +53,27 @@ class ChatbotState(TypedDict):
 def extract_json(text: str) -> dict:
     try:
         # Buscar el bloque de JSON en el texto
-        matches = re.findall(r"\{.*?\}", text, re.DOTALL)  # Buscar todo lo que parece un JSON
-        if not matches:
-            raise ValueError("No se encontró un bloque JSON en el texto.")
-        
-        # El primer bloque encontrado se considera el JSON
-        json_text = matches[0]
-        
+        # Se modificó para buscar específicamente un bloque de código JSON si está presente,
+        # o solo un objeto JSON si no hay bloque de código.
+        json_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if json_match:
+            json_text = json_match.group(1)
+        else:
+            # Fallback a buscar cualquier {} si no se encuentra el bloque de código
+            matches = re.findall(r"\{.*?\}", text, re.DOTALL)
+            if not matches:
+                raise ValueError("No se encontró un bloque JSON en el texto.")
+            json_text = matches[0]
+
         # Intentamos cargar el JSON
         return json.loads(json_text)
     except Exception as e:
         raise ValueError(f"Error al extraer JSON: {e}\nTexto recibido:\n{text}")
 
 def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
-    hoy_dt = datetime.today() # Renombrado para evitar conflicto con la cadena 'hoy'
+    hoy_dt = datetime.today()
 
     def get_last_monday(date_ref):
-        # Calculate last Monday relative to the reference date
         return date_ref - timedelta(days=date_ref.weekday()) - timedelta(days=7)
 
     def to_str(date_obj):
@@ -77,11 +86,7 @@ def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
             fecha_inicio = to_str(get_last_monday(hoy_dt))
         elif "hoy" in fecha_inicio_lower:
             fecha_inicio = to_str(hoy_dt)
-        # Add more relative date handling here if needed
-        # elif "ayer" in fecha_inicio_lower:
-        #     fecha_inicio = to_str(hoy_dt - timedelta(days=1))
-        # elif "esta semana" in fecha_inicio_lower:
-        #     fecha_inicio = to_str(hoy_dt - timedelta(days=hoy_dt.weekday())) # Monday of current week
+        # Puedes añadir más lógicas de fecha relativa aquí
 
     # Handle fecha_fin
     if fecha_fin:
@@ -90,26 +95,16 @@ def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
             fecha_fin = to_str(get_last_monday(hoy_dt))
         elif "hoy" in fecha_fin_lower:
             fecha_fin = to_str(hoy_dt)
-        # Add more relative date handling here if needed
-        # elif "ayer" in fecha_fin_lower:
-        #     fecha_fin = to_str(hoy_dt - timedelta(days=1))
-        # elif "esta semana" in fecha_fin_lower:
-        #     fecha_fin = to_str(hoy_dt + timedelta(days=6 - hoy_dt.weekday())) # Sunday of current week
+        # Puedes añadir más lógicas de fecha relativa aquí
 
-
-    # If dates are still not normalized (e.g., they were specific dates like "2022-04-01")
-    # You might want to add validation here to ensure they are in the correct format
-    # or attempt to parse them. For example:
+    # Si las fechas siguen sin normalizarse a YYYY-MM-DD, intentar parsearlas
     if fecha_inicio and not re.match(r"\d{4}-\d{2}-\d{2}", fecha_inicio):
         try:
-            # Attempt to parse if it's not a relative term but also not in YYYY-MM-DD
-            parsed_date = datetime.strptime(fecha_inicio, "%Y-%m-%d") # Or other expected formats
+            parsed_date = datetime.strptime(fecha_inicio, "%Y-%m-%d")
             fecha_inicio = to_str(parsed_date)
         except ValueError:
             print(f"Advertencia: No se pudo normalizar fecha_inicio: {fecha_inicio}")
-            # Optionally set to None or a default if parsing fails
-            fecha_inicio = None # Or raise an error
-            # If you expect the LLM to provide YYYY-MM-DD, this might indicate an LLM issue
+            fecha_inicio = None
 
     if fecha_fin and not re.match(r"\d{4}-\d{2}-\d{2}", fecha_fin):
         try:
@@ -119,24 +114,62 @@ def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
             print(f"Advertencia: No se pudo normalizar fecha_fin: {fecha_fin}")
             fecha_fin = None
 
+    return fecha_inicio, fecha_fin # Corregido: Retorna solo fecha_inicio y fecha_fin
 
-    return fecha_inicio, fecha_fin
 # ---------------------------------------------------------
-# 4. Nodo: Clasificación
+# 4. Nodo: Clasificación (Actualizado para historial y pregunta_completa)
 # ---------------------------------------------------------
 
 def clasificar_intencion(state: ChatbotState) -> ChatbotState:
-    prompt = PROMPT_CLASIFICACION.format(pregunta=state["input"])
-    respuesta = llm.invoke(prompt).content.strip().lower()
-    categorias_validas = {"series_temporales", "documentos_financieros", "consulta_api"}
-    tipo = respuesta if respuesta in categorias_validas else "consulta_api"
-    
-    print(f"[🔍 CLASIFICADOR] Pregunta: {state['input']}")
-    print(f"[🔍 CLASIFICADOR] Prompt enviado:\n{prompt}")
-    print(f"[🔍 CLASIFICADOR] Respuesta del modelo: {respuesta}")
+    pregunta_original = state["input"] # Capturamos la pregunta original aquí
+    # Obtener historial de preguntas previas, limitar a las últimas 3
+    historial_preguntas_previas = state.get("historial_preguntas", [])
+    historial_para_prompt = "\n".join(historial_preguntas_previas) if historial_preguntas_previas else "No hay historial previo."
+
+    # Formatear el prompt con la pregunta del usuario y el historial
+    prompt = PROMPT_CLASIFICACION.format(
+        pregunta_original=pregunta_original, # Usamos pregunta_original aquí
+        historial_conversacion=historial_para_prompt
+    )
+
+    respuesta_llm = llm.invoke(prompt).content.strip()
+
+    # Extraer JSON con clasificación y pregunta_completa
+    tipo = "consulta_api" # Valor por defecto si falla la extracción o clasificación
+    pregunta_completa = pregunta_original # Valor por defecto
+
+    try:
+        data = extract_json(respuesta_llm)
+        tipo = data.get("clasificacion", "consulta_api").lower() # Asegurarse que sea minúsculas
+        pregunta_completa = data.get("pregunta_completa", pregunta_original)
+        
+        # Validar tipo de pregunta
+        categorias_validas = {"series_temporales", "documentos_financieros", "consulta_api"}
+        if tipo not in categorias_validas:
+            print(f"⚠️ Tipo de pregunta '{tipo}' no válido. Usando 'consulta_api' como fallback.")
+            tipo = "consulta_api"
+
+    except ValueError as e:
+        print(f"❌ Error al extraer JSON de clasificación/pregunta_completa: {e}\nRespuesta RAW del LLM:\n{respuesta_llm}")
+        # Si falla la extracción, se mantienen los valores por defecto
+
+    print(f"[🔍 CLASIFICADOR] Pregunta original: {pregunta_original}")
+    print(f"[🔍 CLASIFICADOR] Historial para prompt:\n{historial_para_prompt}")
+    print(f"[🔍 CLASIFICADOR] Respuesta RAW del LLM para clasificación:\n{respuesta_llm}")
+    print(f"[🔍 CLASIFICADOR] Pregunta completa generada: {pregunta_completa}")
     print(f"[🔍 CLASIFICADOR] Tipo detectado: {tipo}")
 
-    return {**state, "tipo_pregunta": tipo, "fuente": "clasificador"}
+    # Actualizar historial_preguntas (solo las últimas 3 preguntas del usuario)
+    historial_preguntas_actualizado = historial_preguntas_previas + [pregunta_original]
+    historial_preguntas_actualizado = historial_preguntas_actualizado[-3:]
+
+    return {
+        **state,
+        "tipo_pregunta": tipo,
+        "pregunta_completa": pregunta_completa,
+        "historial_preguntas": historial_preguntas_actualizado,
+        "fuente": "clasificador"
+    }
 
 # ---------------------------------------------------------
 # 5. Nodo de decisión
@@ -145,71 +178,70 @@ def clasificar_intencion(state: ChatbotState) -> ChatbotState:
 def seleccionar_fuente(state: ChatbotState) -> str:
     return state["tipo_pregunta"]
 
-## ---------------------------------------------------------
-# 6. Nodo: Series temporales
+# ---------------------------------------------------------
+# 6. Nodo: Series temporales (Ahora usa pregunta_original y pregunta_completa)
 # ---------------------------------------------------------
 
 def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
-    pregunta = state["input"]
+    pregunta_original = state["input"]
+    pregunta_completa = state["pregunta_completa"]
+    fecha_actual = state.get("fecha_actual", datetime.now().strftime("%Y-%m-%d")) # Obtener fecha actual del estado
+    print(f"[📊 SERIES] Analizando series temporales con:\n  Original: '{pregunta_original}'\n  Completa: '{pregunta_completa}'\n  Fecha Actual: '{fecha_actual}'")
 
-    # Formatear el prompt con la pregunta del usuario
-    prompt = PROMPT_SERIES.format(pregunta=pregunta)
+    prompt = PROMPT_SERIES.format(
+        pregunta_original=pregunta_original,
+        pregunta_completa=pregunta_completa,
+        fecha_actual=fecha_actual # Pasar fecha_actual al prompt
+    )
     response = llm.invoke(prompt)
     try:
-        # Extraer la información en formato JSON
         data = extract_json(response.content)
     except Exception as e:
-        print(f"⚠️ Error extrayendo JSON del LLM: {e}")
+        print(f"⚠️ Error extrayendo JSON del LLM en nodo Series Temporales: {e}")
         return {
             **state,
-            "respuesta": "❌ No se pudo extraer la información de la pregunta.",
+            "respuesta": "❌ No se pudo extraer la información necesaria para la predicción de series temporales.",
             "fuente": "series_temporales"
         }
 
-    # Obtener la empresa, el lag y la respuesta simulada
     empresa = data.get("empresa", "BBVA").upper()
     lag = int(data.get("lag", 1))
+    # En este punto, 'respuesta_simulada' es generada por el LLM como un ejemplo
     respuesta_simulada = data.get("respuesta", "")
 
     print(f"[📊 SERIES] Empresa detectada: {empresa}, lag: {lag}")
-    print(f"[📊 SERIES] Respuesta simulada: {respuesta_simulada}")
+    print(f"[📊 SERIES] Respuesta simulada (del LLM): {respuesta_simulada}")
 
-    # Aquí, si lo deseas, puedes incluir la predicción real basada en tus modelos.
-    # Los pasos adicionales para obtener la predicción real podrían seguir siendo relevantes
     modelos_dir = os.path.join(os.getcwd(), "modelos_por_empresa")
     path_csv = os.path.join(os.getcwd(), "IBEX35_cotizaciones_20_Limpio.csv")
 
-    # Llamar al modelo para obtener la predicción real (si es necesario)
     resultado = ejecutar_prediccion(empresa, lag, path_csv, modelos_dir)
-    respuesta_modelo = resultado.get("respuesta", "No se pudo obtener la predicción real.")
+    respuesta_real_modelo = resultado.get("respuesta", "No se pudo obtener la predicción real.")
+    
+    # Priorizamos la respuesta real si está disponible y es relevante
+    final_respuesta = respuesta_real_modelo if "No se pudo obtener" not in respuesta_real_modelo else respuesta_simulada
 
-    # Devolver la respuesta final sin detalles adicionales como RMSE
     return {
         **state,
-        "respuesta": f"{respuesta_simulada}",  # Solo la respuesta simulada
+        "respuesta": final_respuesta,
         "fuente": "series_temporales",
         "empresa": empresa
     }
 
-
 # ---------------------------------------------------------
-# 7. Nodo: Documentos financieros -> Qdrant
+# 7. Nodo: Documentos financieros -> Qdrant (Ahora usa pregunta_original y pregunta_completa)
 # ---------------------------------------------------------
 
 def consulta_qdrant(state: ChatbotState) -> ChatbotState:
-    """
-    Este nodo maneja las consultas clasificadas como 'documentos_financieros'.
-    Realiza una búsqueda RAG en Qdrant y genera una respuesta con el LLM.
-    """
-    pregunta = state["input"]
-    print(f"\n[📚 Nodo RAG] ✅ Entrada al nodo 'consulta_qdrant' con Pregunta: '{pregunta}'")
+    pregunta_original = state["input"]
+    pregunta_completa = state["pregunta_completa"] # La usamos para la búsqueda y para el prompt
+    fecha_actual = state.get("fecha_actual", datetime.now().strftime("%Y-%m-%d")) # Obtener fecha actual del estado
+    print(f"\n[📚 Nodo RAG] ✅ Entrada al nodo 'consulta_qdrant' con:\n  Original: '{pregunta_original}'\n  Completa: '{pregunta_completa}'\n  Fecha Actual: '{fecha_actual}'")
 
     try:
-        # 1. Buscar fragmentos relevantes en Qdrant
         print("[📚 Nodo RAG] Buscando fragmentos en Qdrant...")
-        resultados = buscar_en_qdrant(pregunta)
+        resultados = buscar_en_qdrant(pregunta_completa) # La búsqueda sigue usando la pregunta_completa por su claridad
 
-        # Filtrar fragmentos válidos
         fragmentos = [r.payload.get("fragmento", "") for r in resultados if r.payload and r.payload.get("fragmento")]
         
         if not fragmentos:
@@ -221,21 +253,23 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
                 "fragmentos": []
             }
 
-        # 2. Construir el contexto
         contexto = "\n\n".join(fragmentos)
         print(f"[📚 Nodo RAG] Contexto enviado al LLM (primeros 500 chars):\n'{contexto[:500]}...'")
 
-        # 3. Preparar el prompt
-        prompt_rag = PROMPT_RAG_DOCUMENTOS.format(contexto=contexto, pregunta=pregunta)
+        # Pasar ambas preguntas y fecha_actual al prompt RAG
+        prompt_rag = PROMPT_RAG_DOCUMENTOS.format(
+            contexto=contexto,
+            pregunta_original=pregunta_original,
+            pregunta_completa=pregunta_completa,
+            fecha_actual=fecha_actual # Pasar fecha_actual al prompt
+        )
         print(f"[📚 Nodo RAG] Prompt RAG enviado al LLM (primeros 500 chars):\n'{prompt_rag[:500]}...'")
 
-        # 4. Invocar al LLM
-        print("[📚 Nodo RAG] Invocando LLM...")
+        print("[📚 Nodo RAG] Invocando LLM para generar respuesta RAG...")
         llm_response_object = llm.invoke(prompt_rag)
         llm_response_raw = llm_response_object.content.strip()
         print(f"[📚 Nodo RAG] Respuesta RAW del LLM:\n'{llm_response_raw}'")
 
-        # 5. Procesar la respuesta directamente (sin JSON)
         respuesta_final_text = llm_response_raw
         respuesta_final_text = respuesta_final_text.replace(". ", ". \n").replace("- ", "• ")
 
@@ -249,7 +283,7 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
         }
 
     except Exception as general_e:
-        print(f"❌ Error CRÍTICO y general en el nodo Qdrant (fuera del bloque LLM): {general_e}")
+        print(f"❌ Error CRÍTICO y general en el nodo Qdrant: {general_e}")
         return {
             **state,
             "respuesta": f"Lo siento mucho, hubo un problema técnico inesperado al procesar tu solicitud de documentos financieros. Detalles: {general_e}. Por favor, inténtalo de nuevo o formula la pregunta de otra manera.",
@@ -257,28 +291,25 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
             "fragmentos": []
         }
 
-
-
-# 8. Nodo: Consulta API financiera (Versión Actualizada)
+# ---------------------------------------------------------
+# 8. Nodo: Consulta API financiera (Ahora usa pregunta_original y pregunta_completa)
 # ---------------------------------------------------------
 
 def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
-    pregunta = state["input"]
-    print(f"[🌐 Nodo API] Pregunta: {pregunta}")
+    pregunta_original = state["input"]
+    pregunta_para_api_extraccion = state["pregunta_completa"]
+    fecha_actual = state["fecha_actual"] # Usar la fecha actual del estado
+    print(f"[🌐 Nodo API] Pregunta original para extracción: {pregunta_original}")
+    print(f"[🌐 Nodo API] Pregunta completa para extracción: {pregunta_para_api_extraccion}")
+    print(f"[🌐 Nodo API] Fecha actual (del estado): {fecha_actual}")
 
-    # --- INICIO DE LA ACTUALIZACIÓN ---
 
-    # 1. Obtenemos la fecha actual para dar contexto al LLM
-    fecha_de_hoy = datetime.now().strftime("%Y-%m-%d")
-
-    # 2. Pasamos la fecha actual Y la pregunta al prompt
     extraction_prompt = PROMPT_API_EXTRAER.format(
-        pregunta=pregunta,
-        fecha_actual=fecha_de_hoy
+        pregunta_original=pregunta_original,
+        pregunta_completa=pregunta_para_api_extraccion,
+        fecha_actual=fecha_actual # Pasar fecha_actual del estado
     )
     
-    # --- FIN DE LA ACTUALIZACIÓN ---
-
     print(f"[🌐 Nodo API] Prompt de extracción:\n{extraction_prompt}")
     
     response = llm.invoke(extraction_prompt)
@@ -287,45 +318,39 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     print(f"[🌐 Nodo API] Respuesta LLM para extracción CRUDA:\n'{llm_response_content}'")
     
     try:
-        # Extraer datos del JSON
         data = extract_json(llm_response_content)
         print(f"[🌐 Nodo API] Datos extraídos del LLM:\n{data}")
 
-        # Normalizar el nombre de la empresa
         empresa = data.get("empresa")
         if not empresa:
             print("⚠️ No se pudo extraer la empresa del JSON")
         empresa_normalizada = empresa.strip().lower() if empresa else None  
         print(f"[🌐 Nodo API] Empresa normalizada: {empresa_normalizada}")
         
-        # Verificar que las fechas sean válidas
         fecha_inicio = data.get("fecha_inicio")
         fecha_fin = data.get("fecha_fin")
         fecha_inicio, fecha_fin = normalizar_fechas_relativas(fecha_inicio, fecha_fin)
         print(f"[🌐 Nodo API] Fechas normalizadas: {fecha_inicio}, {fecha_fin}")
 
     except Exception as e:
-        print(f"⚠️ Error extrayendo parámetros: {e}")
+        print(f"⚠️ Error extrayendo parámetros para API: {e}")
         return {
             **state,
             "respuesta": "❌ No se pudieron extraer los parámetros necesarios para consultar los datos.",
             "fuente": "api"
         }
 
-    # Validación de los parámetros clave
     if not all([empresa_normalizada, fecha_inicio, fecha_fin]):
         print(f"⚠️ Faltan parámetros clave: empresa={empresa_normalizada}, fecha_inicio={fecha_inicio}, fecha_fin={fecha_fin}")
         return {
             **state,
-            "respuesta": "❌ Faltan parámetros clave: empresa, fecha de inicio o fin.",
+            "respuesta": "❌ Faltan parámetros clave: empresa, fecha de inicio o fin. Por favor, sé más específico.",
             "fuente": "api"
         }
 
-    # Obtener los datos reales de la API financiera
     resultado = construir_respuesta_yfinance(empresa_normalizada, fecha_inicio, fecha_fin)
     print(f"[🌐 Nodo API] Resultado de la API financiera:\n{resultado['respuesta']}")
 
-    # Devolver solo el dato real
     return {
         **state,
         "respuesta": resultado['respuesta'],
@@ -334,8 +359,39 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
         "fecha_inicio": fecha_inicio,
         "fecha_fin": fecha_fin
     }
+
 # ---------------------------------------------------------
-# 9. Construcción del grafo
+# 9. Nodo: Actualizar Historial Completo
+# ---------------------------------------------------------
+
+def actualizar_historial_final(state: ChatbotState) -> ChatbotState:
+    historial_completo_previo = state.get("historial_completo", [])
+    
+    # Añadir la última interacción al historial completo
+    nueva_entrada = {
+        "pregunta_usuario": state["input"],
+        "pregunta_procesada": state.get("pregunta_completa", state["input"]),
+        "respuesta_asistente": state.get("respuesta", "No se pudo generar una respuesta."),
+        "fuente": state.get("fuente", "desconocida"),
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    historial_completo_actualizado = historial_completo_previo + [nueva_entrada]
+
+    # Limitar el historial completo a las últimas 10 interacciones (puedes ajustar este número)
+    historial_completo_actualizado = historial_completo_actualizado[-10:] 
+
+    print(f"[🔄 HISTORIAL] Historial completo actualizado. Total entradas: {len(historial_completo_actualizado)}")
+    print(f"[🔄 HISTORIAL] Última entrada: {nueva_entrada}")
+
+    return {
+        **state,
+        "historial_completo": historial_completo_actualizado
+    }
+
+
+# ---------------------------------------------------------
+# 10. Construcción del grafo (Actualizado con nuevo nodo de historial)
 # ---------------------------------------------------------
 
 def build_graph():
@@ -344,6 +400,7 @@ def build_graph():
     graph.add_node("series_temporales", RunnableLambda(analizar_series_temporales))
     graph.add_node("consulta_qdrant", RunnableLambda(consulta_qdrant))
     graph.add_node("consulta_api", RunnableLambda(consultar_api_financiera))
+    graph.add_node("actualizar_historial", RunnableLambda(actualizar_historial_final)) # Nuevo nodo
 
     graph.set_entry_point("clasificar")
 
@@ -353,9 +410,13 @@ def build_graph():
         "consulta_api": "consulta_api"
     })
 
-    graph.add_edge("series_temporales", END)
-    graph.add_edge("consulta_qdrant", END)
-    graph.add_edge("consulta_api", END)
+    # Ahora los nodos específicos pasan por 'actualizar_historial' antes de terminar
+    graph.add_edge("series_temporales", "actualizar_historial")
+    graph.add_edge("consulta_qdrant", "actualizar_historial")
+    graph.add_edge("consulta_api", "actualizar_historial")
+    
+    # Y el nodo de historial es el que lleva al final
+    graph.add_edge("actualizar_historial", END)
 
     return graph.compile()
 
@@ -364,40 +425,79 @@ graph = build_graph()
 
 
 if __name__ == "__main__":
-    # Suponiendo que 'graph' ya está compilado como en tu código
-    # from qdrant_utils import buscar_en_qdrant # Necesitarás importar esto en tu entorno de prueba
-    # from prompts import PROMPT_RAG_DOCUMENTOS # Necesitarás importar esto en tu entorno de prueba
-    # from langchain_groq import ChatGroq # Asegúrate de que llm esté configurado
-
-    # Simular una pregunta sobre sostenibilidad de BBVA
-    pregunta_sostenibilidad = "¿Cuál es la estrategia de sostenibilidad de BBVA?"
-
-    print(f"Probando la pregunta: '{pregunta_sostenibilidad}'\n")
-
-    # Ejecutar la pregunta a través del grafo
-    # El estado inicial solo necesita la entrada del usuario
-    initial_state = {"input": pregunta_sostenibilidad, 
-                     "empresa": None, 
-                     "tipo_pregunta": None, 
-                     "respuesta": None, 
-                     "fuente": None, 
-                     "fecha_inicio": None, 
-                     "fecha_fin": None, 
-                     "grafico_base64": None}
+    # --- Simulación de una conversación ---
     
-    # La ejecución real del grafo requeriría una instancia del grafo compilado
-    # y las dependencias de Qdrant y LLM configuradas.
-    # Por ejemplo:
-    final_state = graph.invoke(initial_state)
+    # Primer turno: Pregunta sobre una empresa específica
+    print("\n--- Turno 1: Precio de Repsol ---")
+    initial_state_1 = {
+        "input": "¿Cuál es el precio actual de Repsol?",
+        "historial_preguntas": [], # Nuevo
+        "historial_completo": [],    # Nuevo
+        "fecha_actual": datetime.now().strftime("%Y-%m-%d") # Pasar la fecha actual al estado inicial
+    }
+    final_state_1 = graph.invoke(initial_state_1)
+    print(f"\nRespuesta del bot: {final_state_1.get('respuesta')}")
+    print(f"Tipo de pregunta: {final_state_1.get('tipo_pregunta')}")
+    print(f"Pregunta completa: {final_state_1.get('pregunta_completa')}")
+    print(f"Historial de preguntas (para el siguiente turno): {final_state_1.get('historial_preguntas')}")
+    print(f"Historial completo (al final del turno): {final_state_1.get('historial_completo')}")
 
-    print("\n--- Resultado de la consulta ---")
-    print(f"Tipo de pregunta detectado: {final_state.get('tipo_pregunta')}")
-    print(f"Fuente de la respuesta: {final_state.get('fuente')}")
-    print(f"Respuesta: {final_state.get('respuesta')}")
-    
-    if 'fragmentos' in final_state and final_state['fragmentos']:
-        print("\nFragmentos de documentos utilizados:")
-        for i, fragmento in enumerate(final_state['fragmentos']):
-            print(f"Fragmento {i+1}:\n{fragmento[:200]}...\n") # Mostrar solo los primeros 200 caracteres
-    elif 'fragmentos' in final_state:
-        print("\nNo se utilizaron fragmentos de documentos (posiblemente no se encontraron relevantes o hubo un error).")
+    # Segundo turno: Pregunta de seguimiento (se espera que use el contexto)
+    print("\n--- Turno 2: Y mañana? ---")
+    initial_state_2 = {
+        "input": "¿Y mañana?",
+        "historial_preguntas": final_state_1["historial_preguntas"], # Pasar historial del turno anterior
+        "historial_completo": final_state_1["historial_completo"],      # Pasar historial completo
+        "fecha_actual": datetime.now().strftime("%Y-%m-%d") # Pasar la fecha actual al estado inicial
+    }
+    final_state_2 = graph.invoke(initial_state_2)
+    print(f"\nRespuesta del bot: {final_state_2.get('respuesta')}")
+    print(f"Tipo de pregunta: {final_state_2.get('tipo_pregunta')}")
+    print(f"Pregunta completa: {final_state_2.get('pregunta_completa')}")
+    print(f"Historial de preguntas (para el siguiente turno): {final_state_2.get('historial_preguntas')}")
+    print(f"Historial completo (al final del turno): {final_state_2.get('historial_completo')}")
+
+    # Tercer turno: Pregunta sobre informes (cambio de contexto)
+    print("\n--- Turno 3: Beneficios de BBVA ---")
+    initial_state_3 = {
+        "input": "¿Qué beneficios obtuvo BBVA en 2023?",
+        "historial_preguntas": final_state_2["historial_preguntas"],
+        "historial_completo": final_state_2["historial_completo"],
+        "fecha_actual": datetime.now().strftime("%Y-%m-%d") # Pasar la fecha actual al estado inicial
+    }
+    final_state_3 = graph.invoke(initial_state_3)
+    print(f"\nRespuesta del bot: {final_state_3.get('respuesta')}")
+    print(f"Tipo de pregunta: {final_state_3.get('tipo_pregunta')}")
+    print(f"Pregunta completa: {final_state_3.get('pregunta_completa')}")
+    print(f"Historial de preguntas (para el siguiente turno): {final_state_3.get('historial_preguntas')}")
+    print(f"Historial completo (al final del turno): {final_state_3.get('historial_completo')}")
+
+    # Cuarto turno: Otro seguimiento (debería seguir el último contexto de BBVA)
+    print("\n--- Turno 4: Y su estrategia de sostenibilidad? ---")
+    initial_state_4 = {
+        "input": "¿Y su estrategia de sostenibilidad?",
+        "historial_preguntas": final_state_3["historial_preguntas"],
+        "historial_completo": final_state_3["historial_completo"],
+        "fecha_actual": datetime.now().strftime("%Y-%m-%d") # Pasar la fecha actual al estado inicial
+    }
+    final_state_4 = graph.invoke(initial_state_4)
+    print(f"\nRespuesta del bot: {final_state_4.get('respuesta')}")
+    print(f"Tipo de pregunta: {final_state_4.get('tipo_pregunta')}")
+    print(f"Pregunta completa: {final_state_4.get('pregunta_completa')}")
+    print(f"Historial de preguntas (para el siguiente turno): {final_state_4.get('historial_preguntas')}")
+    print(f"Historial completo (al final del turno): {final_state_4.get('historial_completo')}")
+
+    # Quinto turno: Nueva pregunta, el historial de 3 preguntas debería ser (BBVA sostenibilidad, beneficios BBVA, y mañana?)
+    print("\n--- Turno 5: Precio de Santander la semana pasada ---")
+    initial_state_5 = {
+        "input": "¿Cuál fue el precio promedio de Santander la semana pasada?",
+        "historial_preguntas": final_state_4["historial_preguntas"],
+        "historial_completo": final_state_4["historial_completo"],
+        "fecha_actual": datetime.now().strftime("%Y-%m-%d") # Pasar la fecha actual al estado inicial
+    }
+    final_state_5 = graph.invoke(initial_state_5)
+    print(f"\nRespuesta del bot: {final_state_5.get('respuesta')}")
+    print(f"Tipo de pregunta: {final_state_5.get('tipo_pregunta')}")
+    print(f"Pregunta completa: {final_state_5.get('pregunta_completa')}")
+    print(f"Historial de preguntas (para el siguiente turno): {final_state_5.get('historial_preguntas')}")
+    print(f"Historial completo (al final del turno): {final_state_5.get('historial_completo')}")
