@@ -1,7 +1,7 @@
 PROMPT_CLASIFICACION = """
 Actúa como un sistema de clasificación de preguntas financieras relacionadas con empresas del IBEX 35.
 
-Tu tarea es leer una pregunta del usuario y clasificarla en **una y solo una** de las siguientes categorías. Asegúrate de considerar los detalles y el contexto de la pregunta antes de tomar una decisión.
+Tu tarea es clasificar la siguiente pregunta: {pregunta} en una de las siguientes categorias. Asegúrate de considerar los detalles y el contexto de la pregunta antes de tomar una decisión.
 
 **Categorías:**
 
@@ -38,7 +38,7 @@ Tu tarea es leer una pregunta del usuario y clasificarla en **una y solo una** d
    - "¿Cuánto ha sido el precio de BBVA en los últimos 7 días?"
 
 🟨 Devuelve únicamente el nombre exacto de la categoría:  
-**series_temporales**, **documentos_financieros** o **consulta_api**  
+series_temporales, documentos_financieros o consulta_api 
 No escribas comillas, ni texto adicional.
 
 --- 
@@ -46,35 +46,35 @@ No escribas comillas, ni texto adicional.
 ### Ejemplos:
 
 **Pregunta:** ¿Cómo ha evolucionado Repsol en el último año?  
-**Respuesta:** series_temporales  
+  Respuesta: series_temporales  
 *(Esta pregunta pide una interpretación de la evolución del precio de la acción durante un período de tiempo.)*
 
 **Pregunta:** ¿Qué beneficios obtuvo BBVA en 2023?  
-**Respuesta:** documentos_financieros  
+  Respuesta: documentos_financieros  
 *(Esta pregunta hace referencia a los resultados financieros y los beneficios de la empresa según el informe anual.)*
 
 **Pregunta:** ¿Cuál fue el precio medio de Iberdrola en abril de 2022?  
-**Respuesta:** consulta_api  
+  Respuesta: consulta_api  
 *(Esta pregunta solicita un dato específico de la cotización de la acción de Iberdrola en un rango de fechas determinado.)*
 
 **Pregunta:** ¿Cuál es la cotización de mañana de BBVA?  
-**Respuesta:** series_temporales  
+  Respuesta: series_temporales  
 *(Esta pregunta solicita una predicción del precio de la acción de BBVA para el próximo día.)*
 
 **Pregunta:** Predicción para Iberdrola la próxima semana  
-**Respuesta:** series_temporales  
+Respuesta: series_temporales  
 *(Esta pregunta se refiere a una proyección sobre el comportamiento de Iberdrola en los próximos 7 días.)*
 
 **Pregunta:** ¿Qué comportamiento se espera de Santander en los próximos 15 días?  
-**Respuesta:** series_temporales  
+  Respuesta: series_temporales  
 *(Esta pregunta solicita una predicción a corto plazo sobre la evolución de las acciones de Santander.)*
 
 **Pregunta:** Dame el precio actual de Telefónica  
-**Respuesta:** consulta_api  
+  Respuesta: consulta_api  
 *(Esta pregunta solicita el precio actual de la acción de Telefónica.)*
 
 **Pregunta:** ¿Cuál es el precio promedio de BBVA en los últimos 7 días?  
-**Respuesta:** consulta_api  
+  Respuesta: consulta_api  
 *(Esta pregunta solicita el precio promedio de BBVA durante los últimos 7 días, lo que es un dato histórico.)*
 
 --- 
@@ -96,13 +96,14 @@ Tu tarea es responder la siguiente pregunta como si accedieras a dichos document
 
 **Pregunta del usuario:**
 {pregunta}
+---
+**Responde basándote en la información contenida en los documentos proporcionados.** :
 
-**Responde basándote en la información contenida en los documentos proporcionados.** 
+{contexto}
 
-Devuelve la respuesta en formato JSON con la clave "respuesta". Por ejemplo:
-{
-  "respuesta": "Según el informe anual 2023, Telefónica incrementó su beneficio neto un 15% respecto al año anterior, destacando el crecimiento en Brasil y Alemania."
-}
+---
+
+"respuesta": "Según el informe anual 2023, Telefónica incrementó su beneficio neto un 15% respecto al año anterior, destacando el crecimiento en Brasil y Alemania."
 
 **Notas adicionales:**
 - Asegúrate de que la información presentada esté estructurada de manera clara.
@@ -179,20 +180,14 @@ Dado que esta es una consulta a la API de YFinance, simplemente responde con los
 {pregunta}
 
 ---
-
-⚠️ Devuelve **exclusivamente** la respuesta con el precio promedio obtenido de la API, siguiendo el siguiente formato:
-
-✅ El precio medio de las acciones de **[Empresa]** entre **[YYYY-MM-DD]** y **[YYYY-MM-DD]** fue de **[Precio] €**.
-
 💡 Detalles importantes:
 - [Empresa]: El nombre real de la empresa con la primera letra en mayúscula (por ejemplo, Iberdrola, Repsol).
 - [Precio]: Solo el número redondeado con dos decimales (por ejemplo, 9.22), sin `dtype`, `Ticker`, etc.
 - No incluyas ninguna otra información adicional, ni interpretaciones, ni metadatos técnicos.
 
 ---
-
-**Ejemplo de formato esperado**:
-✅ El precio medio de las acciones de **Iberdrola** entre **2023-04-01** y **2023-04-30** fue de **9.22 €**.
+**Formato de respuesta:**
+quiero que respondas incluyendo tanto la fecha que solicita el usario (poniendo el año que corresponda, ten en cuenta que estamos en 2025) como el precio medio de la acción de la empresa solicitada. 
 """
 
 PROMPT_API_EXTRAER = """
@@ -202,15 +197,12 @@ Extrae los siguientes datos de la pregunta sobre **precios de acciones del IBEX 
 - **fecha_inicio** (YYYY-MM-DD)
 - **fecha_fin** (YYYY-MM-DD)
 
-Extrae los siguientes datos de la pregunta sobre precios de acciones del IBEX 35:
 
-- empresa (en minúsculas, sin tildes ni mayúsculas, sin confundir con otras empresas)
-- fecha_inicio (YYYY-MM-DD)
-- fecha_fin (YYYY-MM-DD)
-
-Usa la lógica de lenguaje natural para interpretar referencias temporales como "ayer", "la semana pasada", "el lunes", etc. Calcula fechas realistas basadas en hoy (aunque estés simulando).
+Usa la lógica de lenguaje natural para interpretar referencias temporales. **La fecha de hoy es {fecha_actual}**. Usa esta fecha como referencia para interpretar el contexto temporal de la pregunta (por ejemplo, "hoy", "ayer", "la semana pasada", etc.).
 
 En este caso, si se menciona una *fecha específica, **usa esa fecha como la fecha de inicio y fin*.
+
+**Estamos en 2025, asi que si no se especifica una fecha, asume este año. Si menciona el año pasado, usa 2024 y así sucesivamente.**
 
 ---
 

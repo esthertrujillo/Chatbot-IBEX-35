@@ -197,41 +197,88 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
 # ---------------------------------------------------------
 
 def consulta_qdrant(state: ChatbotState) -> ChatbotState:
+    """
+    Este nodo maneja las consultas clasificadas como 'documentos_financieros'.
+    Realiza una búsqueda RAG en Qdrant y genera una respuesta con el LLM.
+    """
     pregunta = state["input"]
-    
-    resultados = buscar_en_qdrant(pregunta)
-    fragmentos = [r.payload.get("fragmento", "") for r in resultados]
-    contexto = "\n\n".join(fragmentos)
-
-    prompt_rag = PROMPT_RAG_DOCUMENTOS.format(contexto=contexto, pregunta=pregunta)
-    respuesta_llm = llm.invoke(prompt_rag).content.strip()
+    print(f"\n[📚 Nodo RAG] ✅ Entrada al nodo 'consulta_qdrant' con Pregunta: '{pregunta}'")
 
     try:
-        data = extract_json(respuesta_llm)
-        respuesta_final = data.get("respuesta", "(El modelo no devolvió una clave 'respuesta').")
-    except Exception as e:
-        print(f"⚠️ Error extrayendo JSON del LLM: {e}")
-        respuesta_final = respuesta_llm
+        # 1. Buscar fragmentos relevantes en Qdrant
+        print("[📚 Nodo RAG] Buscando fragmentos en Qdrant...")
+        resultados = buscar_en_qdrant(pregunta)
 
-    respuesta_final = respuesta_final.replace(". ", ".  \n").replace("- ", "• ")
+        # Filtrar fragmentos válidos
+        fragmentos = [r.payload.get("fragmento", "") for r in resultados if r.payload and r.payload.get("fragmento")]
+        
+        if not fragmentos:
+            print("[📚 Nodo RAG] ⚠️ No se encontraron fragmentos relevantes en Qdrant.")
+            return {
+                **state,
+                "respuesta": "Lo siento, no pude encontrar información relevante en mis documentos financieros para responder a tu pregunta. ¿Podrías reformularla o buscar algo diferente?",
+                "fuente": "qdrant",
+                "fragmentos": []
+            }
 
-    return {
-        **state,
-        "respuesta": respuesta_final,
-        "fuente": "qdrant",
-        "fragmentos": fragmentos
-    }
+        # 2. Construir el contexto
+        contexto = "\n\n".join(fragmentos)
+        print(f"[📚 Nodo RAG] Contexto enviado al LLM (primeros 500 chars):\n'{contexto[:500]}...'")
 
-# ---------------------------------------------------------
-# 8. Nodo: Consulta API financiera
+        # 3. Preparar el prompt
+        prompt_rag = PROMPT_RAG_DOCUMENTOS.format(contexto=contexto, pregunta=pregunta)
+        print(f"[📚 Nodo RAG] Prompt RAG enviado al LLM (primeros 500 chars):\n'{prompt_rag[:500]}...'")
+
+        # 4. Invocar al LLM
+        print("[📚 Nodo RAG] Invocando LLM...")
+        llm_response_object = llm.invoke(prompt_rag)
+        llm_response_raw = llm_response_object.content.strip()
+        print(f"[📚 Nodo RAG] Respuesta RAW del LLM:\n'{llm_response_raw}'")
+
+        # 5. Procesar la respuesta directamente (sin JSON)
+        respuesta_final_text = llm_response_raw
+        respuesta_final_text = respuesta_final_text.replace(". ", ". \n").replace("- ", "• ")
+
+        print(f"[📚 Nodo RAG] ✅ Respuesta final generada (primeros 500 chars):\n'{respuesta_final_text[:500]}...'")
+
+        return {
+            **state,
+            "respuesta": respuesta_final_text,
+            "fuente": "qdrant",
+            "fragmentos": fragmentos
+        }
+
+    except Exception as general_e:
+        print(f"❌ Error CRÍTICO y general en el nodo Qdrant (fuera del bloque LLM): {general_e}")
+        return {
+            **state,
+            "respuesta": f"Lo siento mucho, hubo un problema técnico inesperado al procesar tu solicitud de documentos financieros. Detalles: {general_e}. Por favor, inténtalo de nuevo o formula la pregunta de otra manera.",
+            "fuente": "error_qdrant",
+            "fragmentos": []
+        }
+
+
+
+# 8. Nodo: Consulta API financiera (Versión Actualizada)
 # ---------------------------------------------------------
 
 def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     pregunta = state["input"]
     print(f"[🌐 Nodo API] Pregunta: {pregunta}")
+
+    # --- INICIO DE LA ACTUALIZACIÓN ---
+
+    # 1. Obtenemos la fecha actual para dar contexto al LLM
+    fecha_de_hoy = datetime.now().strftime("%Y-%m-%d")
+
+    # 2. Pasamos la fecha actual Y la pregunta al prompt
+    extraction_prompt = PROMPT_API_EXTRAER.format(
+        pregunta=pregunta,
+        fecha_actual=fecha_de_hoy
+    )
     
-    # Extraer parámetros desde el LLM
-    extraction_prompt = PROMPT_API_EXTRAER.format(pregunta=pregunta)
+    # --- FIN DE LA ACTUALIZACIÓN ---
+
     print(f"[🌐 Nodo API] Prompt de extracción:\n{extraction_prompt}")
     
     response = llm.invoke(extraction_prompt)
@@ -287,7 +334,6 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
         "fecha_inicio": fecha_inicio,
         "fecha_fin": fecha_fin
     }
-
 # ---------------------------------------------------------
 # 9. Construcción del grafo
 # ---------------------------------------------------------
@@ -315,3 +361,43 @@ def build_graph():
 
 # Compilamos el grafo
 graph = build_graph()
+
+
+if __name__ == "__main__":
+    # Suponiendo que 'graph' ya está compilado como en tu código
+    # from qdrant_utils import buscar_en_qdrant # Necesitarás importar esto en tu entorno de prueba
+    # from prompts import PROMPT_RAG_DOCUMENTOS # Necesitarás importar esto en tu entorno de prueba
+    # from langchain_groq import ChatGroq # Asegúrate de que llm esté configurado
+
+    # Simular una pregunta sobre sostenibilidad de BBVA
+    pregunta_sostenibilidad = "¿Cuál es la estrategia de sostenibilidad de BBVA?"
+
+    print(f"Probando la pregunta: '{pregunta_sostenibilidad}'\n")
+
+    # Ejecutar la pregunta a través del grafo
+    # El estado inicial solo necesita la entrada del usuario
+    initial_state = {"input": pregunta_sostenibilidad, 
+                     "empresa": None, 
+                     "tipo_pregunta": None, 
+                     "respuesta": None, 
+                     "fuente": None, 
+                     "fecha_inicio": None, 
+                     "fecha_fin": None, 
+                     "grafico_base64": None}
+    
+    # La ejecución real del grafo requeriría una instancia del grafo compilado
+    # y las dependencias de Qdrant y LLM configuradas.
+    # Por ejemplo:
+    final_state = graph.invoke(initial_state)
+
+    print("\n--- Resultado de la consulta ---")
+    print(f"Tipo de pregunta detectado: {final_state.get('tipo_pregunta')}")
+    print(f"Fuente de la respuesta: {final_state.get('fuente')}")
+    print(f"Respuesta: {final_state.get('respuesta')}")
+    
+    if 'fragmentos' in final_state and final_state['fragmentos']:
+        print("\nFragmentos de documentos utilizados:")
+        for i, fragmento in enumerate(final_state['fragmentos']):
+            print(f"Fragmento {i+1}:\n{fragmento[:200]}...\n") # Mostrar solo los primeros 200 caracteres
+    elif 'fragmentos' in final_state:
+        print("\nNo se utilizaron fragmentos de documentos (posiblemente no se encontraron relevantes o hubo un error).")
