@@ -40,7 +40,7 @@ def ejecutar_prediccion(empresa, lag, path_csv, modelos_dir):
     ultima_pred = y_pred[-1]
 
     return {
-        "respuesta": f"✅ Predicción para {empresa} a {lag} días: {ultima_pred:.2f} € (RMSE: {rmse:.4f})",
+        "respuesta": f"La Predicción para {empresa} a {lag} días: {ultima_pred:.2f} €",
         "rmse": rmse,
         "ultima_prediccion": ultima_pred
     }

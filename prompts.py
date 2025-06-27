@@ -56,8 +56,9 @@ Clasifica esta `pregunta_completa` en una de las siguientes categorías. Asegúr
     -   "¿Cuál fue el precio de la acción de Repsol ayer?"
     -   "¿Cuánto ha sido el precio de BBVA en los últimos 7 días?"
 
-    **IMPORTANTE: ten en cuenta que la fecha de hoy para saber si es pasado o futuro de lo que te habla: {fecha_actual} **
 ---
+**IMPORTANTE: ten en cuenta que la fecha de hoy para saber si es pasado o futuro de lo que te habla: {fecha_actual} **
+------
 **Formato de Salida (JSON):**
 Debes responder **EXCLUSIVAMENTE** en formato JSON.
 
@@ -115,12 +116,15 @@ Tu tarea es analizar la siguiente pregunta del usuario y extraer la siguiente in
 2️⃣ **Lag (horizonte de predicción)**: Determina el número de días que el usuario quiere predecir.
     - Si la pregunta sugiere un análisis o predicción de "mañana", "próximo día", "día siguiente" → lag = 1
     - Si menciona "próxima semana", "7 días" → lag = 7
-    - Si menciona "próximos 15 días", "15 días" → lag = 15
+    - Si menciona "próximos 15 días" o "en dos semanas", "15 días" → lag = 15
     - Si no queda claro, el lag por defecto es 1
 3️⃣ **Respuesta simulada**: Con base en el **lag** identificado, genera una respuesta de predicción para la acción. Solo devuelve una frase concisa con el **precio estimado** en el siguiente período sin información adicional.
 
 **La respuesta debe ser un objeto JSON** con la "respuesta" simulada, la "empresa" y el "lag" extraídos.
 
+**Solo puede ser lag 1, 7 o 15.** 
+
+---
 ---
 **Pregunta original del usuario:**
 {pregunta_original}

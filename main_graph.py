@@ -121,15 +121,16 @@ def normalizar_fechas_relativas(fecha_inicio, fecha_fin):
 # ---------------------------------------------------------
 
 def clasificar_intencion(state: ChatbotState) -> ChatbotState:
-    pregunta_original = state["input"] # Capturamos la pregunta original aquí
-    # Obtener historial de preguntas previas, limitar a las últimas 3
+    pregunta_original = state["input"]
     historial_preguntas_previas = state.get("historial_preguntas", [])
     historial_para_prompt = "\n".join(historial_preguntas_previas) if historial_preguntas_previas else "No hay historial previo."
+    fecha_actual = state.get("fecha_actual", datetime.now().strftime("%Y-%m-%d")) # <--- Get fecha_actual from state
 
-    # Formatear el prompt con la pregunta del usuario y el historial
+    # Formatear el prompt con la pregunta del usuario, el historial, y la fecha actual
     prompt = PROMPT_CLASIFICACION.format(
-        pregunta_original=pregunta_original, # Usamos pregunta_original aquí
-        historial_conversacion=historial_para_prompt
+        pregunta_original=pregunta_original,
+        historial_conversacion=historial_para_prompt,
+        fecha_actual=fecha_actual
     )
 
     respuesta_llm = llm.invoke(prompt).content.strip()
