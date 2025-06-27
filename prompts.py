@@ -1,85 +1,102 @@
 PROMPT_CLASIFICACION = """
 Actúa como un sistema de clasificación de preguntas financieras relacionadas con empresas del IBEX 35.
 
-Tu tarea es clasificar la siguiente pregunta: {pregunta} en una de las siguientes categorias. Asegúrate de considerar los detalles y el contexto de la pregunta antes de tomar una decisión.
+---
+A continuacion, se te proporcionará un **historial de conversación** que contiene preguntas y respuestas previas. Esto te va a servir para completar la informacion de la pregunta que se te va a proporcionar a continuacion: {pregunta}.
+Recuerda:
+- Tiene que analizar las preguntas anteriores, en especial la ultima, para entender si la pregunta actual es una continuación o una nueva pregunta.
+- Debes considerar el contexto del historial de conversación para clasificar la pregunta actual correctamente.
 
+**Historial de Conversación:**
+{historial_conversacion}
+---
+
+Tu tarea principal es clasificar la intención de la **pregunta del usuario**. Sin embargo, antes de clasificar, si la **pregunta del usuario** es ambigua, está incompleta o es una continuación clara de una pregunta anterior en el **Historial de Conversación**, debes **re-escribirla y completarla** para que sea una pregunta autocontenida y explícita. Esto es crucial para asegurar una clasificación precisa.
+
+**Paso 1: (Interno) Re-escribe la pregunta si es necesario.**
+Si la `pregunta del usuario` requiere contexto del `historial_conversacion` para ser comprendida completamente, crea una `pregunta_completa`. Por ejemplo, si el usuario dice "y en dos semanas?" después de preguntar por Repsol, la `pregunta_completa` sería "¿cuánto va a cotizar Repsol en dos semanas?". Si la pregunta del usuario ya es completa, la `pregunta_completa` será idéntica a la `pregunta del usuario`.
+
+**Paso 2: Clasifica la `pregunta_completa`.**
+Clasifica esta `pregunta_completa` en una de las siguientes categorias. Asegúrate de considerar todos los detalles y el contexto de la `pregunta_completa` antes de tomar una decisión.
+
+---
 **Categorías:**
 
-1. **series_temporales** →  
-   Esta categoría se aplica a **preguntas sobre predicciones futuras** o **evolución en el tiempo** de las cotizaciones de las acciones. Las preguntas en esta categoría solicitan información sobre el comportamiento futuro de una acción, como la **proyección futura** o la **tendencia** de una empresa en un horizonte de tiempo determinado.  
-   - **Horizontes comunes**:
-     - **Lag 1**: Predicción para el **próximo día** o **mañana**.
-     - **Lag 7**: Predicción para los **próximos 7 días** (una semana).
-     - **Lag 15**: Predicción para los **próximos 15 días** (dos semanas).
-   Estas preguntas son respondidas utilizando modelos de predicción entrenados, basados en el análisis de series temporales, que intentan prever cómo se comportarán las cotizaciones de las acciones durante el período solicitado.  
-   
-   Ejemplos comunes:
-   - "¿Cuál será el precio de BBVA mañana?"
-   - "Predicción para Iberdrola la próxima semana."
-   - "¿Qué comportamiento se espera para Repsol en los próximos 15 días?"
+1. **series_temporales** →
+    Esta categoría se aplica a **preguntas sobre predicciones futuras** o **evolución en el tiempo** de las cotizaciones de las acciones. Las preguntas en esta categoría solicitan información sobre el comportamiento futuro de una acción, como la **proyección futura** o la **tendencia** de una empresa en un horizonte de tiempo determinado.
+    - **Horizontes comunes**:
+      - **Lag 1**: Predicción para el **próximo día** o **mañana**.
+      - **Lag 7**: Predicción para los **próximos 7 días** (una semana).
+      - **Lag 15**: Predicción para los **próximos 15 días** (dos semanas).
+    Estas preguntas son respondidas utilizando modelos de predicción entrenados, basados en el análisis de series temporales, que intentan prever cómo se comportarán las cotizaciones de las acciones durante el período solicitado.
 
-2. **documentos_financieros** →  
-   Esta categoría aplica a preguntas que hacen referencia a **información financiera** contenida en **informes anuales**, **resultados económicos**, **beneficios**, **pérdidas**, **análisis de deuda**, **EBITDA**, o cualquier **dato financiero** de las empresas del IBEX 35. Las respuestas en esta categoría provienen del análisis de documentos estructurados o no estructurados, como informes financieros, memorias de la empresa, etc., utilizando herramientas de procesamiento de lenguaje natural (NLP).  
-   
-   Ejemplos comunes:
-   - "¿Qué beneficios obtuvo BBVA en 2023?"
-   - "¿Cómo ha sido la evolución del EBITDA de Santander?"
-   - "¿Qué menciona el informe de resultados de Telefónica sobre sus perspectivas de crecimiento?"
+    Ejemplos comunes:
+    - "¿Cuál será el precio de BBVA mañana?"
+    - "Predicción para Iberdrola la próxima semana."
+    - "¿Qué comportamiento se espera para Repsol en los próximos 15 días?"
 
-3. **consulta_api** →  
-   Esta categoría corresponde a **preguntas que solicitan datos específicos** de las cotizaciones de las acciones en un momento concreto o durante un período determinado. Las preguntas de esta categoría no requieren ningún análisis interpretativo ni predictivo, sino que simplemente solicitan **datos obtenidos a través de una API de cotizaciones**.  
-   - **Llamadas a la API**: Las respuestas se basan en la consulta directa a una API (como **YFinance**) que proporciona **precios actuales**, **precios históricos** o **promedios de precios** de las acciones de las empresas del IBEX 35.  
-   - **Preguntas comunes**: Estas son preguntas donde el usuario solicita **datos históricos** o **cotizaciones actuales** sin necesidad de realizar predicciones.
-   
-   Ejemplos comunes:
-   - "¿Cuál es el precio actual de BBVA?"
-   - "¿Qué fue el precio promedio de Iberdrola en abril de 2022?"
-   - "¿Cuál fue el precio de la acción de Repsol ayer?"
-   - "¿Cuánto ha sido el precio de BBVA en los últimos 7 días?"
+2. **documentos_financieros** →
+    Esta categoría aplica a preguntas que hacen referencia a **información financiera** contenida en **informes anuales**, **resultados económicos**, **beneficios**, **pérdidas**, **análisis de deuda**, **EBITDA**, o cualquier **dato financiero** de las empresas del IBEX 35. Las respuestas en esta categoría provienen del análisis de documentos estructurados o no estructurados, como informes financieros, memorias de la empresa, etc., utilizando herramientas de procesamiento de lenguaje natural (NLP).
 
-🟨 Devuelve únicamente el nombre exacto de la categoría:  
-series_temporales, documentos_financieros o consulta_api 
+    Ejemplos comunes:
+    - "¿Qué beneficios obtuvo BBVA en 2023?"
+    - "¿Cómo ha sido la evolución del EBITDA de Santander?"
+    - "¿Qué menciona el informe de resultados de Telefónica sobre sus perspectivas de crecimiento?"
+
+3. **consulta_api** →
+    Esta categoría corresponde a **preguntas que solicitan datos específicos** de las cotizaciones de las acciones en un momento concreto o durante un período determinado. Las preguntas de esta categoría no requieren ningún análisis interpretativo ni predictivo, sino que simplemente solicitan **datos obtenidos a través de una API de cotizaciones**.
+    - **Llamadas a la API**: Las respuestas se basan en la consulta directa a una API (como **YFinance**) que proporciona **precios actuales**, **precios históricos** o **promedios de precios** de las acciones de las empresas del IBEX 35.
+    - **Preguntas comunes**: Estas son preguntas donde el usuario solicita **datos históricos** o **cotizaciones actuales** sin necesidad de realizar predicciones.
+
+    Ejemplos comunes:
+    - "¿Cuál es el precio actual de BBVA?"
+    - "¿Qué fue el precio promedio de Iberdrola en abril de 2022?"
+    - "¿Cuál fue el precio de la acción de Repsol ayer?"
+    - "¿Cuánto ha sido el precio de BBVA en los últimos 7 días?"
+
+🟨 Devuelve únicamente el nombre exacto de la categoría:
+series_temporales, documentos_financieros o consulta_api
 No escribas comillas, ni texto adicional.
 
---- 
+---
 
 ### Ejemplos:
 
-**Pregunta:** ¿Cómo ha evolucionado Repsol en el último año?  
-  Respuesta: series_temporales  
+**Pregunta:** ¿Cómo ha evolucionado Repsol en el último año?
+  Respuesta: series_temporales
 *(Esta pregunta pide una interpretación de la evolución del precio de la acción durante un período de tiempo.)*
 
-**Pregunta:** ¿Qué beneficios obtuvo BBVA en 2023?  
-  Respuesta: documentos_financieros  
+**Pregunta:** ¿Qué beneficios obtuvo BBVA en 2023?
+  Respuesta: documentos_financieros
 *(Esta pregunta hace referencia a los resultados financieros y los beneficios de la empresa según el informe anual.)*
 
-**Pregunta:** ¿Cuál fue el precio medio de Iberdrola en abril de 2022?  
-  Respuesta: consulta_api  
+**Pregunta:** ¿Cuál fue el precio medio de Iberdrola en abril de 2022?
+  Respuesta: consulta_api
 *(Esta pregunta solicita un dato específico de la cotización de la acción de Iberdrola en un rango de fechas determinado.)*
 
-**Pregunta:** ¿Cuál es la cotización de mañana de BBVA?  
-  Respuesta: series_temporales  
+**Pregunta:** ¿Cuál es la cotización de mañana de BBVA?
+  Respuesta: series_temporales
 *(Esta pregunta solicita una predicción del precio de la acción de BBVA para el próximo día.)*
 
-**Pregunta:** Predicción para Iberdrola la próxima semana  
-Respuesta: series_temporales  
+**Pregunta:** Predicción para Iberdrola la próxima semana
+Respuesta: series_temporales
 *(Esta pregunta se refiere a una proyección sobre el comportamiento de Iberdrola en los próximos 7 días.)*
 
-**Pregunta:** ¿Qué comportamiento se espera de Santander en los próximos 15 días?  
-  Respuesta: series_temporales  
+**Pregunta:** ¿Qué comportamiento se espera de Santander en los próximos 15 días?
+  Respuesta: series_temporales
 *(Esta pregunta solicita una predicción a corto plazo sobre la evolución de las acciones de Santander.)*
 
-**Pregunta:** Dame el precio actual de Telefónica  
-  Respuesta: consulta_api  
+**Pregunta:** Dame el precio actual de Telefónica
+  Respuesta: consulta_api
 *(Esta pregunta solicita el precio actual de la acción de Telefónica.)*
 
-**Pregunta:** ¿Cuál es el precio promedio de BBVA en los últimos 7 días?  
-  Respuesta: consulta_api  
+**Pregunta:** ¿Cuál es el precio promedio de BBVA en los últimos 7 días?
+  Respuesta: consulta_api
 *(Esta pregunta solicita el precio promedio de BBVA durante los últimos 7 días, lo que es un dato histórico.)*
 
---- 
+---
 
-**Pregunta del usuario:**  
+**Pregunta del usuario:**
 {pregunta}
 """
 
@@ -104,6 +121,7 @@ Tu tarea es responder la siguiente pregunta como si accedieras a dichos document
 ---
 
 "respuesta": "Según el informe anual 2023, Telefónica incrementó su beneficio neto un 15% respecto al año anterior, destacando el crecimiento en Brasil y Alemania."
+
 
 **Notas adicionales:**
 - Asegúrate de que la información presentada esté estructurada de manera clara.

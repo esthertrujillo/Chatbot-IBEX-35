@@ -1,5 +1,5 @@
 import streamlit as st
-from main_graph import graph
+from main_graph import graph # Asumiendo que main_graph es el nombre de tu archivo main.py
 import torch
 torch.classes = None  # Para evitar conflictos si usas Groq + LangChain
 
@@ -26,8 +26,29 @@ if prompt := st.chat_input("Escribe tu consulta financiera..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.historial.append({"role": "user", "content": prompt})
 
+    # --- Lógica para limitar el historial (después de añadir el mensaje del usuario) ---
+    # Queremos mantener 3 preguntas y 3 respuestas (un total de 6 mensajes)
+    # Si el historial supera los 6 mensajes, nos quedamos con los últimos 6.
+    # Esto asegura que el historial pasado al grafo ya esté limitado.
+    if len(st.session_state.historial) > 6:
+        st.session_state.historial = st.session_state.historial[-6:]
+    # --- Fin de la lógica para limitar el historial ---
+
     try:
-        result = graph.invoke({"input": prompt})
+        # Pasa el historial de la conversación (ya limitado) al grafo
+        initial_state = {
+            "input": prompt,
+            "historial_conversacion": st.session_state.historial, # Aquí se pasa el historial limitado
+            "empresa": None,
+            "tipo_pregunta": None,
+            "respuesta": None,
+            "fuente": None,
+            "fecha_inicio": None,
+            "fecha_fin": None,
+            "grafico_base64": None
+        }
+        result = graph.invoke(initial_state) # Invoca el grafo con el estado actualizado
+        
         respuesta = result.get("respuesta", "Sin respuesta generada.")
         fuente = result.get("fuente", "desconocida")
 
@@ -47,7 +68,17 @@ if prompt := st.chat_input("Escribe tu consulta financiera..."):
         # Guardar respuesta del bot en el historial
         st.session_state.historial.append({"role": "assistant", "content": f"**Fuente: {fuente}**\n\n{respuesta}"})
 
+        # --- Lógica para limitar el historial (después de añadir la respuesta del bot) ---
+        # Asegurarse de que el historial no exceda los 6 mensajes después de añadir la respuesta del asistente
+        if len(st.session_state.historial) > 6:
+            st.session_state.historial = st.session_state.historial[-6:]
+        # --- Fin de la lógica para limitar el historial ---
+
     except Exception as e:
         error_msg = f"⚠️ Error procesando la consulta: {e}"
         st.chat_message("assistant").markdown(error_msg)
         st.session_state.historial.append({"role": "assistant", "content": error_msg})
+
+        # También limitar el historial en caso de error, para mantener la coherencia
+        if len(st.session_state.historial) > 6:
+            st.session_state.historial = st.session_state.historial[-6:]
