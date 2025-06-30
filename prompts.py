@@ -22,45 +22,73 @@ Clasifica esta `pregunta_completa` en una de las siguientes categorías. Asegúr
 
 ---
 
-**IMPORTANTE**: ten en cuenta que la fecha de hoy para saber si es predicción futura o pasada de lo que te habla:** {fecha_actual} **
+🧠 Ten en cuenta que la fecha de hoy es: **{fecha_actual}**
 
 ---
-**Categorías:**
 
-1.  **series_temporales** → Esta categoría se aplica a **preguntas sobre predicciones futuras** o **evolución en el tiempo** de las cotizaciones de las acciones. Las preguntas en esta categoría solicitan información sobre el comportamiento futuro de una acción, como la **proyección futura** o la **tendencia** de una empresa en un horizonte de tiempo determinado.
-    - Ten en cuenta que hoy es {fecha_actual}, por lo que las preguntas de predicción futura se refieren a **horizontes temporales** como **mañana**, **próxima semana** o **próximos 15 días** a partir de hoy.
-    -   **Horizontes comunes**:
-        -   **Lag 1**: Predicción para el **próximo día** o **mañana**.
-        -   **Lag 7**: Predicción para los **próximos 7 días** (una semana).
-        -   **Lag 15**: Predicción para los **próximos 15 días** (dos semanas).
-    
-    Estas preguntas son respondidas utilizando modelos de predicción entrenados, basados en el análisis de series temporales, que intentan prever cómo se comportarán las cotizaciones en el futuro a un día, una semana o dos semanas vista.
+### CATEGORÍAS:
 
-    Ejemplos comunes:
-    -   "¿Cuál será el precio de BBVA mañana?"
-    -   "Predicción para Iberdrola la próxima semana."
-    -   "¿Qué comportamiento se espera para Repsol en los próximos 15 días?"
+---
+
+🔮 **1. `series_temporales`**
+
+Usa esta categoría si la pregunta busca una **predicción futura** sobre la evolución del precio de una acción.
+
+🔹 Indicadores comunes:
+- Palabras como: "mañana", "la próxima semana", "dentro de 15 días", "en el futuro"
+- Preguntas como: "¿qué pasará con…?", "¿cómo evolucionará…?", "¿qué se espera de…?"
+
+🔹 Ejemplos:
+- "¿Cuál será el precio de BBVA mañana?"
+- "¿Qué comportamiento tendrá Iberdrola la próxima semana?"
+- "¿Cómo evolucionará Repsol en los próximos 15 días?"
+
+🛠️ Estas preguntas se responden usando un modelo de predicción de series temporales entrenado para distintos horizontes (Lag 1, Lag 7, Lag 15).
+
+---
+
+📊 **2. `consulta_api`**
+
+Usa esta categoría si la pregunta busca **un dato objetivo concreto**, como una cotización pasada, actual o media.
+
+🔹 Indicadores comunes:
+- Palabras como: "precio", "valor", "cotización", "media", "variación"
+- Fechas o periodos específicos del pasado o presente: "ayer", "la semana pasada", "últimos 7 días", "hoy"
+
+❗ Incluso si la pregunta menciona el pasado o incluye la palabra "media", si pide **solo un dato de cotización**, es `consulta_api`.
+
+🔹 Ejemplos:
+- "¿Cuál es el precio actual de Telefónica?"
+- "¿Qué valor tuvo BBVA ayer?"
+- "Dame el precio medio de Iberdrola la semana pasada"
+- "¿Cuál fue la variación de Santander en los últimos 5 días?"
+
+🛠️ Estas preguntas se responden mediante una API de cotizaciones como YFinance.
+
+---
+
+📄 **3. `documentos_financieros`**
+
+Usa esta categoría si la pregunta hace referencia a **información financiera detallada o general** sobre la empresa: informes, beneficios, pérdidas, ratios financieros, deuda, etc.
+
+🔹 También incluye preguntas de **tipo teórico o estratégico** sobre la empresa, como:
+- Su modelo de negocio
+- Estrategia de crecimiento
+- Perspectivas de futuro
+- Comparativas con otras empresas
+- Información cualitativa contenida en informes o memoria anual
+
+🔹 Indicadores comunes:
+- Palabras como: "beneficios", "resultados", "EBITDA", "deuda", "perspectivas", "análisis", 
+- Fechas fiscales, años pasados o periodos contables: "en 2023", "último trimestre", "Q1"
+
+🔹 Ejemplos:
+- "¿Qué beneficios obtuvo BBVA en 2023?"
+- "¿Qué dice el informe de resultados de Telefónica?"
+- "¿Cómo ha evolucionado el EBITDA de Iberdrola?"
 
 
-2.  **documentos_financieros** → Esta categoría aplica a preguntas que hacen referencia a **información financiera** contenida en **informes anuales**, **resultados económicos**, **beneficios**, **pérdidas**, **análisis de deuda**, **EBITDA**, o cualquier **dato financiero** de las empresas del IBEX 35. Las respuestas en esta categoría provienen del análisis de documentos estructurados o no estructurados, como informes financieros, memorias de la empresa, etc., utilizando herramientas de procesamiento de lenguaje natural (NLP).
-      - Ten en cuenta que hoy es {fecha_actual}, por lo que las preguntas de precios, cierres o cotizaciones pasadas se refieren a **horizontes temporales** como **ayer**, **mes pasado**, **año pasado**.
-
-
-    Ejemplos comunes:
-    -   "¿Qué beneficios obtuvo BBVA en 2023?"
-    -   "¿Cómo ha sido la evolución del EBITDA de Santander?"
-    -   "¿Qué menciona el informe de resultados de Telefónica sobre sus perspectivas de crecimiento?"
-    - 
-
-3.  **consulta_api** → Esta categoría corresponde a **preguntas que solicitan datos específicos** de las cotizaciones de las acciones en un momento concreto o durante un período determinado del pasado o del día de hoy. Las preguntas de esta categoría no requieren ningún análisis interpretativo ni predictivo, sino que simplemente solicitan **datos obtenidos a través de una API de cotizaciones**.
-    -   **Llamadas a la API**: Las respuestas se basan en la consulta directa a una API (como **YFinance**) que proporciona **precios actuales**, **precios históricos** o **promedios de precios** de las acciones de las empresas del IBEX 35.
-    -   **Preguntas comunes**: Estas son preguntas donde el usuario solicita **datos históricos** o **cotizaciones actuales** sin necesidad de realizar predicciones.
-
-    Ejemplos comunes:
-    -   "¿Cuál es el precio actual de BBVA?"
-    -   "¿Qué fue el  **promedio** de las cotizaciones de Iberdrola en abril de 2022?"
-    -   "¿Cuál fue el precio de la acción de Repsol ayer?"
-    -   "¿Cuánto ha sido el precio de BBVA en los últimos 7 días?"
+🛠️ Estas preguntas se responden mediante un sistema RAG que recupera y analiza información de informes financieros.
 
 -----
 **Formato de Salida (JSON):**
