@@ -117,5 +117,5 @@ def construir_respuesta_yfinance(empresa: str, fecha_inicio: str, fecha_fin: str
         }
     else:
         return {
-            "respuesta": f"✅ El precio medio de las acciones de **{empresa.capitalize()}** entre **{fecha_inicio}** y **{fecha_fin}** fue de **{precio_medio} €**."
+            "respuesta": f"El precio medio de las acciones de **{empresa.capitalize()}** entre **{fecha_inicio}** y **{fecha_fin}** fue de **{precio_medio} €**."
         }

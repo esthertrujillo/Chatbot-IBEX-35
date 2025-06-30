@@ -21,15 +21,20 @@ Si la `pregunta del usuario` requiere contexto del `historial_conversacion` para
 Clasifica esta `pregunta_completa` en una de las siguientes categorías. Asegúrate de considerar todos los detalles y el contexto de la `pregunta_completa` antes de tomar una decisión.
 
 ---
+
+**IMPORTANTE**: ten en cuenta que la fecha de hoy para saber si es predicción futura o pasada de lo que te habla:** {fecha_actual} **
+
+---
 **Categorías:**
 
-1.  **series_temporales** →
-    Esta categoría se aplica a **preguntas sobre predicciones futuras** o **evolución en el tiempo** de las cotizaciones de las acciones. Las preguntas en esta categoría solicitan información sobre el comportamiento futuro de una acción, como la **proyección futura** o la **tendencia** de una empresa en un horizonte de tiempo determinado.
+1.  **series_temporales** → Esta categoría se aplica a **preguntas sobre predicciones futuras** o **evolución en el tiempo** de las cotizaciones de las acciones. Las preguntas en esta categoría solicitan información sobre el comportamiento futuro de una acción, como la **proyección futura** o la **tendencia** de una empresa en un horizonte de tiempo determinado.
+    - Ten en cuenta que hoy es {fecha_actual}, por lo que las preguntas de predicción futura se refieren a **horizontes temporales** como **mañana**, **próxima semana** o **próximos 15 días** a partir de hoy.
     -   **Horizontes comunes**:
         -   **Lag 1**: Predicción para el **próximo día** o **mañana**.
         -   **Lag 7**: Predicción para los **próximos 7 días** (una semana).
         -   **Lag 15**: Predicción para los **próximos 15 días** (dos semanas).
-    Estas preguntas son respondidas utilizando modelos de predicción entrenados, basados en el análisis de series temporales, que intentan prever cómo se comportarán las cotizaciones de las acciones durante el período solicitado.
+    
+    Estas preguntas son respondidas utilizando modelos de predicción entrenados, basados en el análisis de series temporales, que intentan prever cómo se comportarán las cotizaciones en el futuro a un día, una semana o dos semanas vista.
 
     Ejemplos comunes:
     -   "¿Cuál será el precio de BBVA mañana?"
@@ -37,28 +42,27 @@ Clasifica esta `pregunta_completa` en una de las siguientes categorías. Asegúr
     -   "¿Qué comportamiento se espera para Repsol en los próximos 15 días?"
 
 
-2.  **documentos_financieros** →
-    Esta categoría aplica a preguntas que hacen referencia a **información financiera** contenida en **informes anuales**, **resultados económicos**, **beneficios**, **pérdidas**, **análisis de deuda**, **EBITDA**, o cualquier **dato financiero** de las empresas del IBEX 35. Las respuestas en esta categoría provienen del análisis de documentos estructurados o no estructurados, como informes financieros, memorias de la empresa, etc., utilizando herramientas de procesamiento de lenguaje natural (NLP).
+2.  **documentos_financieros** → Esta categoría aplica a preguntas que hacen referencia a **información financiera** contenida en **informes anuales**, **resultados económicos**, **beneficios**, **pérdidas**, **análisis de deuda**, **EBITDA**, o cualquier **dato financiero** de las empresas del IBEX 35. Las respuestas en esta categoría provienen del análisis de documentos estructurados o no estructurados, como informes financieros, memorias de la empresa, etc., utilizando herramientas de procesamiento de lenguaje natural (NLP).
+      - Ten en cuenta que hoy es {fecha_actual}, por lo que las preguntas de precios, cierres o cotizaciones pasadas se refieren a **horizontes temporales** como **ayer**, **mes pasado**, **año pasado**.
+
 
     Ejemplos comunes:
     -   "¿Qué beneficios obtuvo BBVA en 2023?"
     -   "¿Cómo ha sido la evolución del EBITDA de Santander?"
     -   "¿Qué menciona el informe de resultados de Telefónica sobre sus perspectivas de crecimiento?"
+    - 
 
-3.  **consulta_api** →
-    Esta categoría corresponde a **preguntas que solicitan datos específicos** de las cotizaciones de las acciones en un momento concreto o durante un período determinado. Las preguntas de esta categoría no requieren ningún análisis interpretativo ni predictivo, sino que simplemente solicitan **datos obtenidos a través de una API de cotizaciones**.
+3.  **consulta_api** → Esta categoría corresponde a **preguntas que solicitan datos específicos** de las cotizaciones de las acciones en un momento concreto o durante un período determinado del pasado o del día de hoy. Las preguntas de esta categoría no requieren ningún análisis interpretativo ni predictivo, sino que simplemente solicitan **datos obtenidos a través de una API de cotizaciones**.
     -   **Llamadas a la API**: Las respuestas se basan en la consulta directa a una API (como **YFinance**) que proporciona **precios actuales**, **precios históricos** o **promedios de precios** de las acciones de las empresas del IBEX 35.
     -   **Preguntas comunes**: Estas son preguntas donde el usuario solicita **datos históricos** o **cotizaciones actuales** sin necesidad de realizar predicciones.
 
     Ejemplos comunes:
     -   "¿Cuál es el precio actual de BBVA?"
-    -   "¿Qué fue el  promedio de Iberdrola en abril de 2022?"
+    -   "¿Qué fue el  **promedio** de las cotizaciones de Iberdrola en abril de 2022?"
     -   "¿Cuál fue el precio de la acción de Repsol ayer?"
     -   "¿Cuánto ha sido el precio de BBVA en los últimos 7 días?"
 
----
-**IMPORTANTE: ten en cuenta que la fecha de hoy para saber si es pasado o futuro de lo que te habla: {fecha_actual} **
-------
+-----
 **Formato de Salida (JSON):**
 Debes responder **EXCLUSIVAMENTE** en formato JSON.
 
@@ -66,6 +70,8 @@ json
 {{
   "pregunta_completa": "tu pregunta re-escrita o la original si ya es completa",
   "clasificacion": "una de las categorías: series_temporales, documentos_financieros, o consulta_api"
+  "justificacion": "una breve explicación de por qué clasificaste la pregunta de esa manera"
+
 }}
 """
 
@@ -174,12 +180,12 @@ quiero que respondas incluyendo tanto la fecha que solicita el usario (poniendo 
 PROMPT_API_EXTRAER = """
 Extrae los siguientes datos de la pregunta sobre **precios de acciones del IBEX 35**:
 
--   **empresa** (en minúsculas)
+-   **empresa** (en minúsculas y **sin tildes**)
 -   **fecha_inicio** (YYYY-MM-DD)
 -   **fecha_fin** (YYYY-MM-DD)
 
 
-Usa la lógica de lenguaje natural para interpretar referencias temporales. **La fecha de hoy es 2025-06-27**. Usa esta fecha como referencia para interpretar el contexto temporal de la pregunta (por ejemplo, "hoy", "ayer", "la semana pasada", etc.).
+Usa la lógica de lenguaje natural para interpretar referencias temporales. **La fecha de hoy es {fecha_actual}. Usa esta fecha como referencia para interpretar el contexto temporal de la pregunta (por ejemplo, "hoy", "ayer", "la semana pasada", etc.).
 
 En este caso, si se menciona una *fecha específica, **usa esa fecha como la fecha de inicio y fin*.
 
@@ -195,11 +201,12 @@ En este caso, si se menciona una *fecha específica, **usa esa fecha como la fec
 
 Responde **EXCLUSIVAMENTE** en formato JSON, sin explicaciones, texto adicional o puntuación extra.  
 La respuesta debe ser **SOLAMENTE** el objeto JSON.
+**No incluyas tildes ni caracteres especiales en los nombres de las empresas.**
 
 **Ejemplo de formato de respuesta:**
 ```json
 {{
-  "empresa": "iberdrola",
+  "empresa": "telefonica",
   "fecha_inicio": "2023-03-01",
   "fecha_fin": "2023-03-30" 
 }}

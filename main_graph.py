@@ -124,7 +124,7 @@ def clasificar_intencion(state: ChatbotState) -> ChatbotState:
     pregunta_original = state["input"]
     historial_preguntas_previas = state.get("historial_preguntas", [])
     historial_para_prompt = "\n".join(historial_preguntas_previas) if historial_preguntas_previas else "No hay historial previo."
-    fecha_actual = state.get("fecha_actual", datetime.now().strftime("%Y-%m-%d")) # <--- Get fecha_actual from state
+    fecha_actual = state.get("fecha_actual", datetime.now().strftime("%Y-%m-%d"))
 
     # Formatear el prompt con la pregunta del usuario, el historial, y la fecha actual
     prompt = PROMPT_CLASIFICACION.format(
@@ -135,14 +135,16 @@ def clasificar_intencion(state: ChatbotState) -> ChatbotState:
 
     respuesta_llm = llm.invoke(prompt).content.strip()
 
-    # Extraer JSON con clasificación y pregunta_completa
+    # Extraer JSON con clasificación, pregunta_completa y justificacion
     tipo = "consulta_api" # Valor por defecto si falla la extracción o clasificación
     pregunta_completa = pregunta_original # Valor por defecto
+    justificacion = "No se pudo obtener una justificación." # Valor por defecto para justificación
 
     try:
         data = extract_json(respuesta_llm)
-        tipo = data.get("clasificacion", "consulta_api").lower() # Asegurarse que sea minúsculas
+        tipo = data.get("clasificacion", "consulta_api").lower()
         pregunta_completa = data.get("pregunta_completa", pregunta_original)
+        justificacion = data.get("justificacion", "No se encontró justificación en la respuesta del LLM.")
         
         # Validar tipo de pregunta
         categorias_validas = {"series_temporales", "documentos_financieros", "consulta_api"}
@@ -151,14 +153,18 @@ def clasificar_intencion(state: ChatbotState) -> ChatbotState:
             tipo = "consulta_api"
 
     except ValueError as e:
-        print(f"❌ Error al extraer JSON de clasificación/pregunta_completa: {e}\nRespuesta RAW del LLM:\n{respuesta_llm}")
-        # Si falla la extracción, se mantienen los valores por defecto
+        print(f"❌ Error al extraer JSON de clasificación/pregunta_completa/justificacion: {e}\nRespuesta RAW del LLM:\n{respuesta_llm}")
+        justificacion = f"Error al parsear la respuesta del LLM: {e}"
 
+
+    print(f"\n--- [🔍 CLASIFICADOR] DEBUGGING INFO ---") # Separador para claridad
+    print(f"[🔍 CLASIFICADOR] Prompt enviado al LLM:\n{prompt}") # Nuevo: Imprimir el prompt completo
+    print(f"[🔍 CLASIFICADOR] Respuesta RAW del LLM:\n{respuesta_llm}")
     print(f"[🔍 CLASIFICADOR] Pregunta original: {pregunta_original}")
-    print(f"[🔍 CLASIFICADOR] Historial para prompt:\n{historial_para_prompt}")
-    print(f"[🔍 CLASIFICADOR] Respuesta RAW del LLM para clasificación:\n{respuesta_llm}")
     print(f"[🔍 CLASIFICADOR] Pregunta completa generada: {pregunta_completa}")
     print(f"[🔍 CLASIFICADOR] Tipo detectado: {tipo}")
+    print(f"[🔍 CLASIFICADOR] Justificación: {justificacion}")
+    print(f"--- [🔍 CLASIFICADOR] FIN DEBUGGING INFO ---\n")
 
     # Actualizar historial_preguntas (solo las últimas 3 preguntas del usuario)
     historial_preguntas_actualizado = historial_preguntas_previas + [pregunta_original]
@@ -187,7 +193,7 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
     pregunta_original = state["input"]
     pregunta_completa = state["pregunta_completa"]
     fecha_actual = state.get("fecha_actual", datetime.now().strftime("%Y-%m-%d")) # Obtener fecha actual del estado
-    print(f"[📊 SERIES] Analizando series temporales con:\n  Original: '{pregunta_original}'\n  Completa: '{pregunta_completa}'\n  Fecha Actual: '{fecha_actual}'")
+    print(f"[📊 SERIES] Analizando series temporales con:\n   Original: '{pregunta_original}'\n   Completa: '{pregunta_completa}'\n   Fecha Actual: '{fecha_actual}'")
 
     prompt = PROMPT_SERIES.format(
         pregunta_original=pregunta_original,
@@ -237,7 +243,7 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
     pregunta_original = state["input"]
     pregunta_completa = state["pregunta_completa"] # La usamos para la búsqueda y para el prompt
     fecha_actual = state.get("fecha_actual", datetime.now().strftime("%Y-%m-%d")) # Obtener fecha actual del estado
-    print(f"\n[📚 Nodo RAG] ✅ Entrada al nodo 'consulta_qdrant' con:\n  Original: '{pregunta_original}'\n  Completa: '{pregunta_completa}'\n  Fecha Actual: '{fecha_actual}'")
+    print(f"\n[📚 Nodo RAG] ✅ Entrada al nodo 'consulta_qdrant' con:\n   Original: '{pregunta_original}'\n   Completa: '{pregunta_completa}'\n   Fecha Actual: '{fecha_actual}'")
 
     try:
         print("[📚 Nodo RAG] Buscando fragmentos en Qdrant...")
