@@ -53,12 +53,15 @@ class ChatbotState(TypedDict):
 # 3. Funciones auxiliares
 # ---------------------------------------------------------
 
+
 def extract_json(text: str) -> Dict[str, Any]:
     try:
+        # 1. Busca bloque JSON con triple backtick
         json_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
         if json_match:
             json_text = json_match.group(1)
         else:
+            # 2. Busca el primer bloque {...}
             matches = re.findall(r"\{.*?\}", text, re.DOTALL)
             if not matches:
                 raise ValueError("No se encontró un bloque JSON en el texto.")
@@ -67,6 +70,7 @@ def extract_json(text: str) -> Dict[str, Any]:
         return json.loads(json_text)
     except Exception as e:
         raise ValueError(f"Error al extraer JSON: {e}\nTexto recibido:\n{text}")
+    
 
 def normalizar_fechas_relativas(fecha_inicio: Optional[str], fecha_fin: Optional[str]) -> tuple[Optional[str], Optional[str]]:
     hoy_dt = datetime.today()
@@ -575,31 +579,24 @@ def chatbot_response(user_input: str, current_state: Optional[ChatbotState] = No
     return final_state
 
 if __name__ == "__main__":
-    print("¡Bienvenido al Chatbot Financiero del IBEX 35!")
-    print("Escribe 'salir' para terminar la conversación.")
+    print("🔎 Chatbot Financiero IBEX 35 - Modo Interactivo")
+    print("Escribe tus preguntas una por una. Escribe 'salir' para terminar.\n")
 
     current_chat_state: Optional[ChatbotState] = None
-    
-    # Lista de preguntas predefinidas
-    preguntas_ejemplo = [
-        "¿Cuál fue el precio de BBVA ayer?",
-        "¿Y el de Bankinter?",
-        "Compara ambas.",
-        "¿Qué beneficios obtuvo Repsol en 2023?",
-        "¿Cómo se espera que evolucione Iberdrola la próxima semana?"
-    ]
 
-    for i, user_question in enumerate(preguntas_ejemplo):
-        print(f"\n--- Pregunta {i+1} ---")
-        print(f"Tu pregunta: {user_question}")
+    while True:
+        user_question = input("🧠 Tu pregunta: ").strip()
+        if user_question.lower() in {"salir", "exit", "quit"}:
+            print("👋 Terminando la sesión. ¡Hasta la próxima!")
+            break
 
         if current_chat_state is None:
             current_chat_state = ChatbotState(
-                input=user_question, 
-                historial_preguntas=[], 
-                historial_completo=[], 
+                input=user_question,
+                historial_preguntas=[],
+                historial_completo=[],
                 fecha_actual=datetime.now().strftime("%Y-%m-%d"),
-                datos_empresa_cache={} # Inicializa el cache
+                datos_empresa_cache={}
             )
         else:
             current_chat_state["input"] = user_question
@@ -607,16 +604,25 @@ if __name__ == "__main__":
 
         try:
             result_state = graph.invoke(current_chat_state)
-            print(f"\nRespuesta del bot: {result_state.get('respuesta', 'Lo siento, no pude procesar tu solicitud.')}")
-            
-            # Actualiza el estado para la siguiente iteración
-            current_chat_state = result_state 
-            
-        except Exception as e:
-            print(f"Ocurrió un error en el chatbot: {e}")
-            print("Por favor, inténtalo de nuevo.")
 
-    print("\n--- Fin de las preguntas de ejemplo ---")
+            print("\n✅ Respuesta generada:")
+            print(result_state.get("respuesta", "❌ No se generó ninguna respuesta."))
+
+            print("\n📊 Detalles del estado:")
+            print(f"- Clasificación: {result_state.get('tipo_pregunta', 'No detectada')}")
+            print(f"- Empresa: {result_state.get('empresa', 'No detectada')}")
+            print(f"- Fuente: {result_state.get('fuente', 'No disponible')}")
+            print(f"- Fechas: {result_state.get('fecha_inicio')} → {result_state.get('fecha_fin')}")
+            print(f"- Pregunta completa: {result_state.get('pregunta_completa', '')}")
+            print(f"- Historial: {result_state.get('historial_preguntas', [])}")
+
+            # Actualiza el estado para la siguiente pregunta
+            current_chat_state = result_state
+
+        except Exception as e:
+            print(f"\n❌ Error en el procesamiento del chatbot: {e}")
+            print("🔁 Por favor, intenta con otra pregunta.\n")
+
     
     # Puedes añadir aquí un bucle interactivo si quieres que el usuario siga preguntando
     # while True:
@@ -635,3 +641,8 @@ if __name__ == "__main__":
     #     except Exception as e:
     #         print(f"Ocurrió un error en el chatbot: {e}")
     #         print("Por favor, inténtalo de nuevo.")
+    #"¿Cuál fue el precio de BBVA ayer?",
+     #   "¿Y el de Bankinter?",
+      #  "Compara ambas.",
+       # "¿Qué beneficios obtuvo Repsol en 2023?",
+        #"¿Cómo se espera que evolucione Iberdrola la próxima semana?"

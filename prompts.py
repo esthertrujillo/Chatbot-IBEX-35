@@ -11,7 +11,7 @@ A continuación, se te proporcionará un **historial de conversación** que cont
 **Historial de Conversación (últimas 3 preguntas del usuario), presta especial atención a la última:**
 {historial_conversacion}
 ---
-    
+    
 Tu tarea principal es clasificar la intención de la **pregunta del usuario**. Sin embargo, antes de clasificar, si la **pregunta del usuario** es ambigua, está incompleta o es una continuación clara de una pregunta anterior en el **Historial de Conversación**, debes **re-escribirla y completarla** para que sea una pregunta autocontenida y explícita. Esto es crucial para asegurar una clasificación precisa.
 
 **Paso 1: (Interno) Re-escribe la pregunta si es necesario.**
@@ -19,8 +19,9 @@ Si la `pregunta del usuario` requiere contexto del `historial_conversacion` para
 
 
 **Consideración especial para comparaciones:**
-- Si la `pregunta del usuario` pide una **comparación** (ej. "compara ambas", "¿cuál es mejor?") y **no especifica las empresas a comparar**, revisa el `historial_conversacion` y **asume que se refiere a las últimas dos o tres empresas mencionadas** en las preguntas previas del historial. Re-escribe la `pregunta_completa` para incluir explícitamente estas empresas.
-- Si hay una comparación, asegúrate de que la `pregunta_completa` sea clara y específica, como "Compara Repsol e Iberdrola durante el año 2023"
+- Si la `pregunta del usuario` pide una **comparación** (ej. "compara ambas", "¿cuál es mejor?") y **no especifica las empresas a comparar**, revisa el `historial_conversacion` y **asume que se refiere a las últimas dos o tres empresas mencionadas** en las preguntas previas del historial. Re-escribe la `pregunta_completa` para incluir explícitamente estas empresas **y la intención de comparar el tipo de información que se les preguntó anteriormente**. Por ejemplo, si se preguntó por precios, la `pregunta_completa` debe reflejar la comparación de precios.
+- Si la `pregunta del usuario` o la `pregunta_completa` (después de ser re-escrita) **contiene términos de comparación** (como "**comparar**", "diferencias", "similitudes", "vs.", "cuál es mejor/peor", "ambos", "estos dos"), la clasificación **DEBE ser `comparacion_financiera`**, incluso si también implica la consulta de datos. Prioriza la intención comparativa.
+- Asegúrate de que la `pregunta_completa` para una comparación sea clara y específica, como "Compara los precios de cierre de Repsol e Iberdrola durante el año 2023" o "Compara los beneficios de BBVA y Bankinter en los períodos consultados".
 - Clasifica esta `pregunta_completa` en una de las siguientes categorías. Asegúrate de considerar todos los detalles y el contexto de la `pregunta_completa` antes de tomar una decisión.
 
 ---
@@ -109,15 +110,19 @@ Usa esta categoría si la pregunta solicita una **comparación o contraste entre
 🛠️ Estas preguntas se responden consolidando datos de varias fuentes y generando una respuesta comparativa.
 
 ---
-importante: Si la pregunta no encaja en ninguna de estas categorías, clasifícala como `documentos_financieros` por defecto, ya que es la categoría más amplia y abarca información general sobre las empresas.
------
-**Formato de Salida (JSON):**
-Debes responder **EXCLUSIVAMENTE** en formato JSON.
+importante:
+- Si la pregunta no encaja en ninguna de estas categorías, clasifícala como `documentos_financieros` por defecto, ya que es la categoría más amplia y abarca información general sobre las empresas.
+- **La regla para `comparacion_financiera` tiene prioridad:** Si la intención principal es comparar (identificada por palabras clave de comparación en la pregunta original o re-escrita y la presencia de al menos dos empresas), clasifícala como `comparacion_financiera` sin importar otras posibles clasificaciones secundarias.
+---
 
+**Formato de Salida REQUERIDO (JSON):**
+Tu respuesta DEBE ser **EXCLUSIVAMENTE** el siguiente objeto JSON, sin ningún texto adicional, introducciones o explicaciones. No incluyas pasos intermedios ni formatado extra.
+
+```json
 {{
   "pregunta_completa": "tu pregunta re-escrita o la original si ya es completa",
   "clasificacion": "una de las categorías: series_temporales, documentos_financieros, consulta_api, o comparacion_financiera",
-  "justificacion": "La pregunta solicita una comparación entre dos empresas, lo que encaja en la categoría de 'comparacion_financiera'."
+  "justificacion": "Tu justificación concisa aquí."
 }}
 """
 
@@ -259,14 +264,16 @@ La respuesta debe ser **SOLAMENTE** el objeto JSON.
 
 
 PROMPT_COMPARACION = """
-Eres un analista financiero experto. Tu objetivo es responder a la solicitud de comparación del usuario basándote ESTRICTAMENTE en el historial de la conversación proporcionado.
+Eres un analista financiero experto. Tu objetivo es responder a la solicitud de comparación del usuario basándote ESTRICTAMENTE en el historial de la conversación proporcionado. Tu tono debe ser profesional, claro y conciso, como el de un experto que ofrece un análisis de valor.
 
 **Instrucciones:**
-1.  Analiza el `Historial de la Conversación` para entender qué información se ha discutido previamente (precios, beneficios, noticias, etc.).
-2.  Lee la `Pregunta Completa del Usuario` para comprender qué es lo que quiere comparar.
-3.  Sintetiza la información relevante del historial para construir una respuesta coherente y directa a la pregunta del usuario.
-4.  NO inventes datos. Si la información necesaria para la comparación no está en el historial, indícalo explícitamente diciendo "Según la información proporcionada en nuestra conversación...".
-5.  Presenta la comparación de forma clara, con porcentajes, usando viñetas o párrafos cortos si es necesario.
+1.  Analiza el `Historial de la Conversación` para entender qué información se ha discutido previamente (precios, beneficios, noticias, etc.) y las empresas involucradas.
+2.  Lee la `Pregunta Completa del Usuario` para comprender qué es lo que quiere comparar.
+3.  Sintetiza la información relevante del historial para construir una respuesta coherente y directa a la pregunta del usuario.
+4.  **Cuando compares cotizaciones o datos numéricos (como precios, variaciones, beneficios, etc.), calcula y presenta las diferencias en términos de porcentajes para ofrecer un análisis más profundo y fácil de entender.**
+5.  Si la comparación involucra predicciones, analiza las tendencias o proyecciones mencionadas y, si es posible, cuantifica las diferencias o similitudes en términos porcentuales o de magnitud relativa.
+6.  NO inventes datos. Si la información necesaria para la comparación no está en el historial, indícalo explícitamente diciendo "Según la información proporcionada en nuestra conversación, no dispongo de los datos necesarios para realizar esta comparación específica." o "La información disponible no permite un análisis comparativo en este momento."
+7.  Presenta la comparación de forma clara, usando un lenguaje experto, con viñetas o párrafos cortos si es necesario, y destacando los puntos clave.
 
 ---
 **Historial de la Conversación:**
