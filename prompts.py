@@ -16,9 +16,8 @@ Tu tarea principal es clasificar la intención de la **pregunta del usuario**. S
 
 **Consideración especial para comparaciones:**
 - Si la `pregunta del usuario` pide una **comparación** (ej. "compara ambas", "¿cuál es mejor?") y **no especifica las empresas a comparar**, revisa el `historial_conversacion` y **asume que se refiere a las últimas dos o tres empresas mencionadas** en las preguntas previas del historial. Re-escribe la `pregunta_completa` para incluir explícitamente estas empresas **y la intención de comparar el tipo de información que se les preguntó anteriormente**. Por ejemplo, si se preguntó por precios, la `pregunta_completa` debe reflejar la comparación de precios.
-- Si la `pregunta del usuario` o la `pregunta_completa` (después de ser re-escrita) **contiene términos de comparación** (como "**comparar**", "diferencias", "similitudes", "vs.", "cuál es mejor/peor", "ambos", "estos dos"), la clasificación **DEBE ser `comparacion_financiera`**, incluso si también implica la consulta de datos. Prioriza la intención comparativa.
-- Asegúrate de que la `pregunta_completa` para una comparación sea clara y específica, como "Compara los precios de cierre de Repsol e Iberdrola durante el año 2023" o "Compara los beneficios de BBVA y Bankinter en los períodos consultados".
-- Clasifica esta `pregunta_completa` en una de las siguientes categorías. Asegúrate de considerar todos los detalles y el contexto de la `pregunta_completa` antes de tomar una decisión.
+- Si la `pregunta del usuario` es algo como "y acciona", completa la pregunta con la información necesaria para que sea clara y específica.
+- Si la `pregunta del usuario` es una continuación de una pregunta anterior, asegúrate de que la `pregunta_completa` sea clara y completa, incorporando el contexto necesario.
 
 ---
 
@@ -117,7 +116,7 @@ Tu respuesta DEBE ser **EXCLUSIVAMENTE** el siguiente objeto JSON, sin ningún t
 ```json
 {{
   "pregunta_completa": "tu pregunta re-escrita o la original si ya es completa",
-  "clasificacion": "una de las categorías: series_temporales, documentos_financieros, consulta_api, o comparacion_financiera",
+  "clasificacion": "una de las categorías: series_te  mporales, documentos_financieros, consulta_api, o comparacion_financiera",
   "justificacion": "Tu justificación concisa aquí."
 }}
 """

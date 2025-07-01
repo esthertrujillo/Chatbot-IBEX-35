@@ -24,7 +24,7 @@ print("GROQ_API_KEY cargada:", os.getenv("GROQ_API_KEY"))
 llm = ChatGroq(
     groq_api_key=os.getenv("GROQ_API_KEY"),
     model_name="llama3-8b-8192", 
-    temperature=0.0
+    temperature=0.1
 )
 
 # ---------------------------------------------------------
@@ -272,7 +272,7 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
         print("[📚 Nodo RAG] Buscando fragmentos en Qdrant...")
         resultados = buscar_en_qdrant(pregunta_completa) 
 
-        fragmentos = [r.payload.get("fragmento", "") for r in resultados if hasattr(r, 'payload') and r.payload and r.payload.get("fragmento")]
+        fragmentos = [r.payload.get("resumen", "") for r in resultados if hasattr(r, 'payload') and r.payload and r.payload.get("resumen")]
         
         if not fragmentos:
             print("[📚 Nodo RAG] ⚠️ No se encontraron fragmentos relevantes en Qdrant.")
@@ -609,8 +609,55 @@ if __name__ == "__main__":
 
     current_chat_state: Optional[ChatbotState] = None
 
+    # Test cases as requested
+    test_questions = [
+        "¿Cuál fue el precio de BBVA ayer?",
+        "¿Y el de Bankinter?",
+        "Compara ambas."
+    ]
+
+    for i, user_question in enumerate(test_questions):
+        print(f"\n\n--- PREGUNTA DE PRUEBA {i+1}: {user_question} ---")
+        if current_chat_state is None:
+            current_chat_state = ChatbotState(
+                input=user_question,
+                historial_preguntas=[],
+                historial_completo=[],
+                fecha_actual=datetime.now().strftime("%Y-%m-%d"),
+                datos_empresa_cache={}
+            )
+        else:
+            current_chat_state["input"] = user_question
+            current_chat_state["fecha_actual"] = datetime.now().strftime("%Y-%m-%d")
+
+        try:
+            result_state = graph.invoke(current_chat_state)
+
+            print("\n✅ Respuesta generada:")
+            print(result_state.get("respuesta", "❌ No se generó ninguna respuesta."))
+
+            print("\n📊 Detalles del estado:")
+            print(f"- Clasificación: {result_state.get('tipo_pregunta', 'No detectada')}")
+            print(f"- Empresa: {result_state.get('empresa', 'No detectada')}")
+            print(f"- Fuente: {result_state.get('fuente', 'No disponible')}")
+            print(f"- Fechas: {result_state.get('fecha_inicio')} -> {result_state.get('fecha_fin')}")
+            print(f"- Pregunta completa: {result_state.get('pregunta_completa', '')}")
+            print(f"- Historial: {result_state.get('historial_preguntas', [])}")
+            print(f"- Cache de Datos (último estado): {json.dumps(result_state.get('datos_empresa_cache', {}), indent=2)}")
+
+            # Update the state for the next question
+            current_chat_state = result_state
+
+        except Exception as e:
+            print(f"\n❌ Error en el procesamiento del chatbot: {e}")
+            print("🔁 Por favor, intenta con otra pregunta.\n")
+    
+    # You can continue with interactive mode after the test questions if you want
+    print("\n--- FIN DE PRUEBAS AUTOMÁTICAS ---")
+    print("Puedes seguir preguntando en modo interactivo si lo deseas. Escribe 'salir' para terminar.")
+    
     while True:
-        user_question = input("🧠 Tu pregunta: ").strip()
+        user_question = input("\n🧠 Tu pregunta: ").strip()
         if user_question.lower() in {"salir", "exit", "quit"}:
             print("👋 Terminando la sesión. ¡Hasta la próxima!")
             break
@@ -637,16 +684,18 @@ if __name__ == "__main__":
             print(f"- Clasificación: {result_state.get('tipo_pregunta', 'No detectada')}")
             print(f"- Empresa: {result_state.get('empresa', 'No detectada')}")
             print(f"- Fuente: {result_state.get('fuente', 'No disponible')}")
-            print(f"- Fechas: {result_state.get('fecha_inicio')} → {result_state.get('fecha_fin')}")
+            print(f"- Fechas: {result_state.get('fecha_inicio')} -> {result_state.get('fecha_fin')}")
             print(f"- Pregunta completa: {result_state.get('pregunta_completa', '')}")
             print(f"- Historial: {result_state.get('historial_preguntas', [])}")
+            print(f"- Cache de Datos (último estado): {json.dumps(result_state.get('datos_empresa_cache', {}), indent=2)}")
 
-            # Actualiza el estado para la siguiente pregunta
+
             current_chat_state = result_state
 
         except Exception as e:
             print(f"\n❌ Error en el procesamiento del chatbot: {e}")
             print("🔁 Por favor, intenta con otra pregunta.\n")
+
 
     
     # Puedes añadir aquí un bucle interactivo si quieres que el usuario siga preguntando
