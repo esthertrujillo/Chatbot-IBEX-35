@@ -18,7 +18,6 @@ def main():
         st.info(
             "Este chatbot te permite interactuar con datos del IBEX 35. "
             "Puedes pedir precios históricos, análisis de documentos (RAG), predicciones futuras, "
-            "o **comparaciones entre empresas**."
         )
 
         st.warning(
@@ -66,8 +65,8 @@ def main():
                     st.session_state.prompt_from_button = "Dame el precio de BBVA ayer"
                     st.rerun()
             with col2:
-                if st.button("¿Cuál es la opinión sobre Repsol?"):
-                    st.session_state.prompt_from_button = "¿Cuál es la opinión sobre Repsol según los últimos informes?"
+                if st.button("¿Qué beneficio neto atribuido obtuvo Iberdrola en 2024 y cómo evolucionó respecto al año anterior?"):
+                    st.session_state.prompt_from_button = "¿Qué beneficio neto atribuido obtuvo Iberdrola en 2024 y cómo evolucionó respecto al año anterior?"
                     st.rerun()
             with col3:
                 if st.button("Predice el precio de Santander mañana"):

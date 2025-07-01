@@ -10,7 +10,7 @@ from langchain_core.runnables import RunnableLambda
 from langchain_groq import ChatGroq
 
 from qdrant_utils import buscar_en_qdrant 
-from prompts import PROMPT_SERIES, PROMPT_API_EXTRAER, PROMPT_CLASIFICACION, PROMPT_RAG_DOCUMENTOS, PROMPT_COMPARACION
+from prompts import PROMPT_SERIES, PROMPT_API_EXTRAER, PROMPT_CLASIFICACION, PROMPT_RAG_DOCUMENTOS
 from cotizaciones import construir_respuesta_yfinance # Esta función debería devolver una respuesta estructurada o el precio
 from series_model import ejecutar_prediccion 
 
@@ -170,7 +170,8 @@ def clasificar_intencion(state: ChatbotState) -> ChatbotState:
         pregunta_completa = data.get("pregunta_completa", pregunta_original)
         justificacion = data.get("justificacion", "No se encontró justificación en la respuesta del LLM.")
         
-        categorias_validas = {"series_temporales", "documentos_financieros", "consulta_api", "comparacion_financiera"}
+        # Eliminada 'comparacion_financiera' de categorías válidas
+        categorias_validas = {"series_temporales", "documentos_financieros", "consulta_api"}
         if tipo not in categorias_validas:
             print(f"⚠️ Tipo de pregunta '{tipo}' no válido. Usando 'consulta_api' como fallback.")
             tipo = "consulta_api"
@@ -310,6 +311,7 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
         # Esto requerirá un sub-LLM o regex inteligente para extraer el valor.
         # Por ahora, un ejemplo muy simplificado si buscas beneficios:
         
+        empresa_preguntada = None
         # Primero, intenta identificar la empresa principal en la pregunta (si solo hay una)
         for empresa_ibex in [
             "bbva", "repsol", "iberdrola", "santander", "telefonica", "acciona",
@@ -465,63 +467,7 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     }
 
 # ---------------------------------------------------------
-# 9. Nodo: Generar Comparación - ¡SIMPLIFICADO!
-# ---------------------------------------------------------
-
-def generar_comparacion(state: ChatbotState) -> ChatbotState:
-    """
-    Genera una comparación utilizando únicamente el historial de la conversación
-    y la pregunta completa del usuario, basándose en lo que el modelo ya ha respondido.
-    """
-    pregunta_completa = state["pregunta_completa"]
-    historial_completo = state.get("historial_completo", [])
-    
-    print(f"\n[🤝 Nodo COMPARACION] Iniciando comparación para: '{pregunta_completa}'")
-
-    # Verifica si hay suficiente historial para realizar una comparación
-    if not historial_completo or len(historial_completo) < 1:
-        return {
-            **state,
-            "respuesta": "Lo siento, necesito más contexto para realizar una comparación. Por favor, haz primero algunas preguntas sobre los temas o empresas que te interesan.",
-            "fuente": "comparacion",
-        }
-
-    # 1. Construye el contexto a partir del historial de conversación.
-    # Esto representa "lo que ya ha respondido el modelo".
-    contexto_historial = []
-    for turno in historial_completo:
-        pregunta_usuario = turno.get("pregunta_usuario", "N/A")
-        respuesta_asistente = turno.get("respuesta_asistente", "N/A")
-        # Se formatea cada turno para que el LLM entienda el flujo de la conversación
-        contexto_historial.append(
-            f"- El usuario preguntó: '{pregunta_usuario}'\n- El asistente respondió: '{respuesta_asistente}'"
-        )
-    
-    contexto_para_llm = "\n\n".join(contexto_historial)
-    print(f"[🤝 Nodo COMPARACION] Contexto construido a partir del historial para el LLM.")
-
-    # 2. Invoca al LLM con el prompt de comparación y el contexto del historial.
-    prompt_comparacion = PROMPT_COMPARACION.format(
-        pregunta_completa=pregunta_completa,
-        historial_conversacion=contexto_para_llm
-    )
-
-    print(f"[🤝 Nodo COMPARACION] Enviando prompt al LLM para generar la comparación.")
-    llm_response = llm.invoke(prompt_comparacion)
-    respuesta_comparativa = llm_response.content.strip()
-    
-    print(f"[🤝 Nodo COMPARACION] Respuesta comparativa generada.")
-
-    # 3. Devuelve el estado actualizado con la respuesta.
-    return {
-        **state,
-        "respuesta": respuesta_comparativa,
-        "fuente": "comparacion",
-        # No se modifican 'datos_recopilados' ni 'datos_empresa_cache',
-        # simplemente se pasan como estaban.
-    }
-# ---------------------------------------------------------
-# 10. Nodo: Actualizar Historial Completo
+# 9. Nodo: Actualizar Historial Completo
 # ---------------------------------------------------------
 
 def actualizar_historial_final(state: ChatbotState) -> ChatbotState:
@@ -551,7 +497,7 @@ def actualizar_historial_final(state: ChatbotState) -> ChatbotState:
 
 
 # ---------------------------------------------------------
-# 11. Construcción del grafo 
+# 10. Construcción del grafo 
 # ---------------------------------------------------------
 
 def build_graph():
@@ -560,7 +506,6 @@ def build_graph():
     graph.add_node("series_temporales", RunnableLambda(analizar_series_temporales))
     graph.add_node("consulta_qdrant", RunnableLambda(consulta_qdrant))
     graph.add_node("consulta_api", RunnableLambda(consultar_api_financiera))
-    graph.add_node("generar_comparacion", RunnableLambda(generar_comparacion)) 
     graph.add_node("actualizar_historial", RunnableLambda(actualizar_historial_final)) 
 
     graph.set_entry_point("clasificar")
@@ -569,13 +514,13 @@ def build_graph():
         "series_temporales": "series_temporales",
         "documentos_financieros": "consulta_qdrant",
         "consulta_api": "consulta_api",
-        "comparacion_financiera": "generar_comparacion" 
+        # Eliminada la rama "comparacion_financiera"
     })
 
     graph.add_edge("series_temporales", "actualizar_historial")
     graph.add_edge("consulta_qdrant", "actualizar_historial")
     graph.add_edge("consulta_api", "actualizar_historial")
-    graph.add_edge("generar_comparacion", "actualizar_historial") 
+    # Eliminada la conexión desde "generar_comparacion"
     
     graph.add_edge("actualizar_historial", END)
 
@@ -584,7 +529,7 @@ def build_graph():
 graph = build_graph()
 
 # ---------------------------------------------------------
-# 12. Función principal para interactuar con el chatbot
+# 11. Función principal para interactuar con el chatbot
 # ---------------------------------------------------------
 
 def chatbot_response(user_input: str, current_state: Optional[ChatbotState] = None) -> ChatbotState:
@@ -613,7 +558,9 @@ if __name__ == "__main__":
     test_questions = [
         "¿Cuál fue el precio de BBVA ayer?",
         "¿Y el de Bankinter?",
-        "Compara ambas."
+        "¿Qué beneficio neto atribuido obtuvo Iberdrola en 2024 y cómo evolucionó respecto al año anterior?",
+        "¿Cuáles son los tres ejes del nuevo plan estratégico de Bankinter para el periodo 2024–2026?"
+
     ]
 
     for i, user_question in enumerate(test_questions):
@@ -695,28 +642,3 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"\n❌ Error en el procesamiento del chatbot: {e}")
             print("🔁 Por favor, intenta con otra pregunta.\n")
-
-
-    
-    # Puedes añadir aquí un bucle interactivo si quieres que el usuario siga preguntando
-    # while True:
-    #     user_question_manual = input("\nTu pregunta (o 'salir'): ")
-    #     if user_question_manual.lower() == 'salir':
-    #         print("¡Hasta luego!")
-    #         break
-    #     
-    #     current_chat_state["input"] = user_question_manual
-    #     current_chat_state["fecha_actual"] = datetime.now().strftime("%Y-%m-%d")
-    #     
-    #     try:
-    #         result_state = graph.invoke(current_chat_state)
-    #         print(f"\nRespuesta del bot: {result_state.get('respuesta', 'Lo siento, no pude procesar tu solicitud.')}")
-    #         current_chat_state = result_state
-    #     except Exception as e:
-    #         print(f"Ocurrió un error en el chatbot: {e}")
-    #         print("Por favor, inténtalo de nuevo.")
-    #"¿Cuál fue el precio de BBVA ayer?",
-     #   "¿Y el de Bankinter?",
-      #  "Compara ambas.",
-       # "¿Qué beneficios obtuvo Repsol en 2023?",
-        #"¿Cómo se espera que evolucione Iberdrola la próxima semana?"
