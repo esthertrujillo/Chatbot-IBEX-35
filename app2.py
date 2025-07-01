@@ -1,14 +1,15 @@
 import streamlit as st
-from main_graph import graph # Asumiendo que main_graph es tu archivo con el grafo
+# Asegúrate de que tu archivo main_graph.py (o main.py) contenga la variable 'graph' compilada
+from main_graph import graph 
 from datetime import datetime
 import time # Importado para el efecto de "escribiendo"
+import json # Necesario para pretty-print JSON
 
 def main():
     """
     Función principal que renderiza la aplicación de chatbot en Streamlit.
     """
     # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
-    # Usamos 'wide' para dar más espacio al banner y al contenido.
     st.set_page_config(page_title="Chatbot Financiero IBEX 35", page_icon="📈", layout="wide")
 
     # --- 2. BARRA LATERAL (SIDEBAR) ---
@@ -16,7 +17,8 @@ def main():
         st.title("ℹ️ Acerca del Chatbot")
         st.info(
             "Este chatbot te permite interactuar con datos del IBEX 35. "
-            "Puedes pedir precios históricos, análisis de documentos (RAG) o predicciones futuras."
+            "Puedes pedir precios históricos, análisis de documentos (RAG), predicciones futuras, "
+            "o **comparaciones entre empresas**."
         )
 
         st.warning(
@@ -28,30 +30,29 @@ def main():
 
         # Botón para limpiar el historial del chat
         if st.button("🗑️ Limpiar Historial del Chat"):
-            # Limpiamos todas las variables de estado de la sesión
+            # Limpiamos todas las variables de estado de la sesión relevantes
             st.session_state.historial_display = []
-            st.session_state.historial_preguntas_llm = []
-            st.session_state.historial_completo_grafo = []
-            # Recargamos la página para que el cambio sea visible inmediatamente
+            st.session_state.historial_preguntas = [] # Corregido para que coincida con el nombre del estado del grafo
+            st.session_state.historial_completo = []  # Corregido para que coincida con el nombre del estado del grafo
             st.rerun()
 
     # --- 3. INTERFAZ PRINCIPAL ---
 
-# AHORA: Usamos columnas para centrar y reducir el tamaño del logo
-    col1, col2, col3 = st.columns([2.5, 1, 2.5])  # [Espacio Izquierda, Logo, Espacio Derecha]
+    col1, col2, col3 = st.columns([2.5, 1, 2.5])
     with col2:
-        st.image("utils/png.jpg") # El logo se mostrará en la columna central (más estrecha)
+        st.image("utils/png.jpg") 
 
     st.title("Chatbot Financiero del IBEX 35")
-    st.caption("Consulta precios, analiza documentos o pide predicciones del mercado español.")
+    st.caption("Consulta precios, analiza documentos, pide predicciones o **compara empresas** del mercado español.")
 
     # Inicializar los historiales en st.session_state si no existen
+    # Nombres de las claves actualizados para coincidir con ChatbotState en main_graph
     if "historial_display" not in st.session_state:
         st.session_state.historial_display = []
-    if "historial_preguntas_llm" not in st.session_state:
-        st.session_state.historial_preguntas_llm = []
-    if "historial_completo_grafo" not in st.session_state:
-        st.session_state.historial_completo_grafo = []
+    if "historial_preguntas" not in st.session_state: # Ahora coincide con el estado del grafo
+        st.session_state.historial_preguntas = []
+    if "historial_completo" not in st.session_state: # Ahora coincide con el estado del grafo
+        st.session_state.historial_completo = []
 
     # --- 4. MENSAJE DE BIENVENIDA Y EJEMPLOS (si el chat está vacío) ---
     if not st.session_state.historial_display:
@@ -59,11 +60,10 @@ def main():
             st.write("👋 **¡Hola! ¿En qué puedo ayudarte hoy?**")
             st.write("Puedes probar con alguna de estas opciones:")
             
-            # Usamos columnas para los botones de ejemplo
             col1, col2, col3 = st.columns(3)
             with col1:
-                if st.button("Dame el precio de Telefónica ayer"):
-                    st.session_state.prompt_from_button = "Dame el precio de Telefónica ayer"
+                if st.button("Dame el precio de BBVA ayer"):
+                    st.session_state.prompt_from_button = "Dame el precio de BBVA ayer"
                     st.rerun()
             with col2:
                 if st.button("¿Cuál es la opinión sobre Repsol?"):
@@ -73,6 +73,7 @@ def main():
                 if st.button("Predice el precio de Santander mañana"):
                     st.session_state.prompt_from_button = "Predice el precio de Santander para mañana"
                     st.rerun()
+
 
     # --- 5. LÓGICA DEL CHAT ---
 
@@ -92,17 +93,26 @@ def main():
         # Preparar y llamar al grafo de LangChain
         try:
             current_date_str = datetime.now().strftime("%Y-%m-%d")
+            # El estado inicial debe coincidir con la TypedDict ChatbotState en main_graph
             initial_state = {
                 "input": prompt,
-                "historial_preguntas": st.session_state.historial_preguntas_llm,
-                "historial_completo": st.session_state.historial_completo_grafo,
+                "historial_preguntas": st.session_state.historial_preguntas, # Usamos el historial gestionado en Streamlit
+                "historial_completo": st.session_state.historial_completo, # Usamos el historial gestionado en Streamlit
                 "fecha_actual": current_date_str,
-                # El resto de claves se llenarán dentro del grafo
+                "empresa": None, # Inicializa todas las claves de ChatbotState
+                "tipo_pregunta": None,
+                "respuesta": None,
+                "fuente": None,
+                "fecha_inicio": None,
+                "fecha_fin": None,
+                "grafico_base64": None,
+                "datos_recopilados": None # Inicializa el nuevo campo
             }
 
             # Mostrar un mensaje de "pensando..." mientras se procesa
             with st.chat_message("assistant"):
                 with st.spinner("Procesando tu consulta..."):
+                    # El grafo ahora maneja el historial_completo y historial_preguntas y los devuelve actualizados
                     result = graph.invoke(initial_state)
 
                 # Extraer la respuesta y la fuente del resultado
@@ -122,7 +132,7 @@ def main():
                 st.caption(f"Fuente de datos: {fuente}")
 
                 # Mostrar gráfico si está disponible
-                if fuente == "series_temporales" and result.get("grafico_base64"):
+                if result.get("grafico_base64"): # No es necesario chequear 'fuente' aquí, si existe, se muestra
                     st.image("data:image/png;base64," + result["grafico_base64"], caption="📈 Gráfico de evolución")
 
                 # Mostrar fragmentos si es una respuesta RAG
@@ -131,23 +141,29 @@ def main():
                         for i, frag in enumerate(result["fragmentos"]):
                             display_frag = frag[:350] + "..." if len(frag) > 350 else frag
                             st.info(f"**Fragmento {i+1}:**\n\n> {display_frag}")
+                
+                # Opcional: Mostrar datos recopilados para depuración en el nodo de comparación
+                if fuente == "comparacion" and result.get("datos_recopilados"):
+                    with st.expander("📊 Datos recopilados para la comparación (DEBUG)"):
+                        st.json(result["datos_recopilados"])
             
             # --- Actualizar historiales en st.session_state ---
             # Para el display, guardamos todo el contenido formateado
             full_assistant_content = f"{respuesta}\n\n*Fuente de datos: {fuente}*"
             st.session_state.historial_display.append({"role": "assistant", "content": full_assistant_content})
             
-            # Para el LLM, solo las preguntas del usuario
-            st.session_state.historial_preguntas_llm.append(prompt)
-            st.session_state.historial_preguntas_llm = st.session_state.historial_preguntas_llm[-3:]
-
-            # Para el grafo, el historial completo que él mismo gestiona
-            st.session_state.historial_completo_grafo = result.get("historial_completo", [])
+            # El grafo gestiona y devuelve los historiales actualizados en 'result'
+            st.session_state.historial_preguntas = result.get("historial_preguntas", [])
+            st.session_state.historial_completo = result.get("historial_completo", [])
 
         except Exception as e:
             error_msg = f"⚠️ Ocurrió un error inesperado al procesar tu consulta: {e}"
             st.chat_message("assistant").error(error_msg)
             st.session_state.historial_display.append({"role": "assistant", "content": error_msg})
+            # En caso de error, podríamos limpiar los historiales para evitar estados corruptos
+            st.session_state.historial_preguntas = []
+            st.session_state.historial_completo = []
+
 
 if __name__ == "__main__":
     main()

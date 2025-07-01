@@ -8,27 +8,29 @@ A continuación, se te proporcionará un **historial de conversación** que cont
 - Analiza las preguntas anteriores, en especial la última, para entender si la pregunta actual es una continuación o una nueva pregunta.
 - Considera el contexto del historial de conversación para clasificar la pregunta actual correctamente.
 
-**Historial de Conversación (últimas 3 preguntas del usuario):**
+**Historial de Conversación (últimas 3 preguntas del usuario), presta especial atención a la última:**
 {historial_conversacion}
 ---
-
+    
 Tu tarea principal es clasificar la intención de la **pregunta del usuario**. Sin embargo, antes de clasificar, si la **pregunta del usuario** es ambigua, está incompleta o es una continuación clara de una pregunta anterior en el **Historial de Conversación**, debes **re-escribirla y completarla** para que sea una pregunta autocontenida y explícita. Esto es crucial para asegurar una clasificación precisa.
 
 **Paso 1: (Interno) Re-escribe la pregunta si es necesario.**
-Si la `pregunta del usuario` requiere contexto del `historial_conversacion` para ser comprendida completamente, crea una `pregunta_completa`. Por ejemplo, si el usuario dice "y en dos semanas?" después de preguntar por Repsol, la `pregunta_completa` sería "¿cuánto va a cotizar Repsol en dos semanas?". Si la pregunta del usuario ya es completa, la `pregunta_completa` será idéntica a la `pregunta del usuario`.
+Si la `pregunta del usuario` requiere contexto del `historial_conversacion` para ser comprendida completamente, crea una `pregunta_completa`. Por ejemplo, si el usuario dice "y en dos semanas?" o "y Acciona?" después de preguntar por Repsol, la `pregunta_completa` sería "¿cuánto va a cotizar Repsol en dos semanas?" o "¿cuánto va a cotizar Acciona?". Si la pregunta del usuario ya es completa, la `pregunta_completa` será idéntica a la `pregunta del usuario`.
 
-**Paso 2: Clasifica la `pregunta_completa`.**
-Clasifica esta `pregunta_completa` en una de las siguientes categorías. Asegúrate de considerar todos los detalles y el contexto de la `pregunta_completa` antes de tomar una decisión.
+
+**Consideración especial para comparaciones:**
+- Si la `pregunta del usuario` pide una **comparación** (ej. "compara ambas", "¿cuál es mejor?") y **no especifica las empresas a comparar**, revisa el `historial_conversacion` y **asume que se refiere a las últimas dos o tres empresas mencionadas** en las preguntas previas del historial. Re-escribe la `pregunta_completa` para incluir explícitamente estas empresas.
+- Si hay una comparación, asegúrate de que la `pregunta_completa` sea clara y específica, como "Compara Repsol e Iberdrola durante el año 2023"
+- Clasifica esta `pregunta_completa` en una de las siguientes categorías. Asegúrate de considerar todos los detalles y el contexto de la `pregunta_completa` antes de tomar una decisión.
 
 ---
 
-🧠 Ten en cuenta que la fecha de hoy es: **{fecha_actual}**
+🧠 Ten en cuenta que la fecha de hoy es: **{fecha_actual}** para reformular la pregunta completa.
 
 ---
 
 ### CATEGORÍAS:
 
----
 
 🔮 **1. `series_temporales`**
 
@@ -45,7 +47,6 @@ Usa esta categoría si la pregunta busca una **predicción futura** sobre la evo
 
 🛠️ Estas preguntas se responden usando un modelo de predicción de series temporales entrenado para distintos horizontes (Lag 1, Lag 7, Lag 15).
 
----
 
 📊 **2. `consulta_api`**
 
@@ -59,13 +60,11 @@ Usa esta categoría si la pregunta busca **un dato objetivo concreto**, como una
 
 🔹 Ejemplos:
 - "¿Cuál es el precio actual de Telefónica?"
-- "¿Qué valor tuvo BBVA ayer?"
+- "¿Qué precio tuvo BBVA ayer?"
 - "Dame el precio medio de Iberdrola la semana pasada"
 - "¿Cuál fue la variación de Santander en los últimos 5 días?"
 
 🛠️ Estas preguntas se responden mediante una API de cotizaciones como YFinance.
-
----
 
 📄 **3. `documentos_financieros`**
 
@@ -76,7 +75,8 @@ Usa esta categoría si la pregunta hace referencia a **información financiera d
 - Estrategia de crecimiento
 - Perspectivas de futuro
 - Comparativas con otras empresas
-- Información cualitativa contenida en informes o memoria anual
+- **Información** cualitativa contenida en informes o memoria anual
+- beneficios, EBITDA, deuda, etc.
 
 🔹 Indicadores comunes:
 - Palabras como: "beneficios", "resultados", "EBITDA", "deuda", "perspectivas", "análisis", 
@@ -86,20 +86,38 @@ Usa esta categoría si la pregunta hace referencia a **información financiera d
 - "¿Qué beneficios obtuvo BBVA en 2023?"
 - "¿Qué dice el informe de resultados de Telefónica?"
 - "¿Cómo ha evolucionado el EBITDA de Iberdrola?"
+- "¿Cuáles fueron los beneficios de BBVA en 2024?"
 
 
 🛠️ Estas preguntas se responden mediante un sistema RAG que recupera y analiza información de informes financieros.
 
+
+🤝 **4. `comparacion_financiera`**
+
+Usa esta categoría si la pregunta solicita una **comparación o contraste entre dos o más empresas** (o sus datos) que probablemente ya se hayan mencionado en la conversación o se mencionan explícitamente en la pregunta actual. Esto incluye comparar precios, rendimientos, estrategias o cualquier otro dato financiero.
+
+🔹 Indicadores comunes:
+- Palabras como: "**comparar**", "diferencias", "similitudes", "vs.", "cuál es mejor/peor", "ambos", "estos dos"
+- Preguntas que implican la necesidad de cotejar información de múltiples entidades.
+
+🔹 Ejemplos:
+- "Compara Repsol e Iberdrola."
+- "¿Cuál de las dos empresas tuvo mejores resultados el año pasado?" (si las empresas ya se mencionaron en el historial)
+- "Diferencias en la cotización de Santander y BBVA hoy."
+- "Si Repsol cotiza a X e Iberdrola a Y, ¿cuál ha subido más en la última semana?"
+
+🛠️ Estas preguntas se responden consolidando datos de varias fuentes y generando una respuesta comparativa.
+
+---
+importante: Si la pregunta no encaja en ninguna de estas categorías, clasifícala como `documentos_financieros` por defecto, ya que es la categoría más amplia y abarca información general sobre las empresas.
 -----
 **Formato de Salida (JSON):**
 Debes responder **EXCLUSIVAMENTE** en formato JSON.
 
-json
 {{
   "pregunta_completa": "tu pregunta re-escrita o la original si ya es completa",
-  "clasificacion": "una de las categorías: series_temporales, documentos_financieros, o consulta_api"
-  "justificacion": "una breve explicación de por qué clasificaste la pregunta de esa manera"
-
+  "clasificacion": "una de las categorías: series_temporales, documentos_financieros, consulta_api, o comparacion_financiera",
+  "justificacion": "La pregunta solicita una comparación entre dos empresas, lo que encaja en la categoría de 'comparacion_financiera'."
 }}
 """
 
@@ -201,8 +219,7 @@ Dado que esta es una consulta a la API de YFinance, simplemente responde con los
 ---
 **Formato de respuesta:**
 quiero que respondas incluyendo tanto la fecha que solicita el usario (poniendo el año que corresponda, ten en cuenta que estamos en 2025) como el precio medio de la acción de la empresa solicitada. 
-"""
-
+""" 
 
 
 PROMPT_API_EXTRAER = """
@@ -217,8 +234,8 @@ Usa la lógica de lenguaje natural para interpretar referencias temporales. **La
 
 En este caso, si se menciona una *fecha específica, **usa esa fecha como la fecha de inicio y fin*.
 
-**Estamos en 2025, asi que si no se especifica una fecha, asume este año. Si menciona el año pasado, usa 2024 y así sucesivamente.**
-
+---
+🧠 Ten en cuenta que la fecha de hoy es: **{fecha_actual}**
 ---
 **Pregunta original del usuario:**
 {pregunta_original}
@@ -238,4 +255,26 @@ La respuesta debe ser **SOLAMENTE** el objeto JSON.
   "fecha_inicio": "2023-03-01",
   "fecha_fin": "2023-03-30" 
 }}
+"""
+
+
+PROMPT_COMPARACION = """
+Eres un analista financiero experto. Tu objetivo es responder a la solicitud de comparación del usuario basándote ESTRICTAMENTE en el historial de la conversación proporcionado.
+
+**Instrucciones:**
+1.  Analiza el `Historial de la Conversación` para entender qué información se ha discutido previamente (precios, beneficios, noticias, etc.).
+2.  Lee la `Pregunta Completa del Usuario` para comprender qué es lo que quiere comparar.
+3.  Sintetiza la información relevante del historial para construir una respuesta coherente y directa a la pregunta del usuario.
+4.  NO inventes datos. Si la información necesaria para la comparación no está en el historial, indícalo explícitamente diciendo "Según la información proporcionada en nuestra conversación...".
+5.  Presenta la comparación de forma clara, con porcentajes, usando viñetas o párrafos cortos si es necesario.
+
+---
+**Historial de la Conversación:**
+{historial_conversacion}
+---
+**Pregunta Completa del Usuario:**
+"{pregunta_completa}"
+---
+
+**Respuesta Comparativa:**
 """
