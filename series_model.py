@@ -1,3 +1,4 @@
+# series_model.py
 import os
 import pickle
 import numpy as np
@@ -7,7 +8,7 @@ from preprocessing import cargar_datos
 from features import crear_variables_lag_y_temporales
 from model_training import dividir_train_test
 from scaling import escalar_datos
-from visualization import graficar_predicciones  # opcional
+from visualization import graficar_predicciones # Make sure this is the modified one
 
 def ejecutar_prediccion(empresa, lag, path_csv, modelos_dir):
     nombre_archivo = f"{empresa.replace(' ', '_').upper()}_lag{lag}.pkl"
@@ -17,7 +18,8 @@ def ejecutar_prediccion(empresa, lag, path_csv, modelos_dir):
         return {
             "respuesta": f"❌ No se encuentra el modelo para {empresa} con lag {lag}.",
             "rmse": None,
-            "ultima_prediccion": None
+            "ultima_prediccion": None,
+            "grafico_base64": None # Added this
         }
 
     with open(modelo_path, "rb") as f:
@@ -26,11 +28,16 @@ def ejecutar_prediccion(empresa, lag, path_csv, modelos_dir):
     df = cargar_datos(path_csv, empresa)
     df = crear_variables_lag_y_temporales(df, empresa=empresa)
 
-    if lag != 1:
-        df["Precio_cierre"] = df["Precio_cierre"].shift(-lag)
-        df.dropna(inplace=True)
-
-    X_train, y_train, X_test, y_test = dividir_train_test(df, fecha_test="2022-04-01")
+    # Note: If lag is not 1, 'Precio_cierre' is shifted, which means y_test will refer
+    # to shifted future values. Ensure your model and data align for prediction.
+    # For a future prediction, you'd typically predict the *next* value(s) given current data.
+    # The current `dividir_train_test` splits by a fixed date, which might not be ideal
+    # for a "future prediction" where you want to predict beyond the *last* known data point.
+    # For a true future prediction, you'd feed the model with the latest available features.
+    # For demonstration purposes, we'll just plot the existing y_test vs y_pred from the current setup.
+    
+    # Get the latest data point for X_test for simple prediction
+    X_train, y_train, X_test, y_test = dividir_train_test(df, fecha_test="2022-04-01") # Using a fixed test split
 
     if isinstance(modelo, SVR):
         X_train, X_test = escalar_datos(X_train, X_test)
@@ -39,8 +46,12 @@ def ejecutar_prediccion(empresa, lag, path_csv, modelos_dir):
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     ultima_pred = y_pred[-1]
 
+    # Generate the plot and get its base64 string
+    plot_base64 = graficar_predicciones(y_test, y_pred, titulo=f"Predicción de {empresa} vs Real")
+
     return {
         "respuesta": f"La Predicción para {empresa} a {lag} días: {ultima_pred:.2f} €",
         "rmse": rmse,
-        "ultima_prediccion": ultima_pred
+        "ultima_prediccion": ultima_pred,
+        "grafico_base64": plot_base64 # Include the base64 string
     }

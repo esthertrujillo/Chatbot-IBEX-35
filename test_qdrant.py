@@ -20,7 +20,7 @@ print(f"📡 Explorando colección '{coleccion}'...\n")
 result = client.scroll(
     collection_name=coleccion,
     with_payload=True,
-    limit=1000
+    limit=1000  # puedes aumentar si tienes más puntos
 )
 
 puntos = result[0]
@@ -34,17 +34,17 @@ print("\n📊 Empresas presentes en el índice:")
 for empresa, count in conteo_empresas.most_common():
     print(f"- {empresa}: {count} fragmentos")
 
-# Buscar fragmentos de CaixaBank
-print("\n🔍 Buscando fragmentos que mencionen 'CaixaBank':")
+# Buscar fragmentos de Santander
+print("\n🔍 Buscando fragmentos que mencionen 'Santander':")
 encontrados = 0
 for p in puntos:
     resumen = p.payload.get("resumen", "").lower()
-    if "caixabank" in resumen:
+    if "santander" in resumen:
         print("\n📝 Fragmento encontrado:")
-        print(p.payload.get("resumen", "")[:1000], "...")  # Muestra primeros 1000 caracteres
+        print(p.payload.get("resumen", "")[:10000], "...")  # Muestra primeros 1000 caracteres
         encontrados += 1
 
 if encontrados == 0:
-    print("⚠️ No se encontraron fragmentos que contengan 'CaixaBank'.")
+    print("⚠️ No se encontraron fragmentos que contengan 'Santander'.")
 
 print("\n✅ Fin del análisis.")

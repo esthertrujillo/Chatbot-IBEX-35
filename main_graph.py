@@ -28,7 +28,7 @@ llm = ChatGroq(
 )
 
 # ---------------------------------------------------------
-# 2. Estado del chatbot - ¡ACTUALIZADO!
+# 2. Estado del chatbot 
 # ---------------------------------------------------------
 
 class ChatbotState(TypedDict):
@@ -215,13 +215,13 @@ def seleccionar_fuente(state: ChatbotState) -> str:
 def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
     pregunta_original = state["input"]
     pregunta_completa = state["pregunta_completa"]
-    fecha_actual = state.get("fecha_actual", datetime.now().strftime("%Y-%m-%d")) 
-    print(f"[📊 SERIES] Analizando series temporales con:\n   Original: '{pregunta_original}'\n   Completa: '{pregunta_completa}'\n   Fecha Actual: '{fecha_actual}'")
+    fecha_actual = state.get("fecha_actual", datetime.now().strftime("%Y-%m-%d"))
+    print(f"[📊 SERIES] Analizando series temporales con:\n   Original: '{pregunta_original}'\n   Completa: '{pregunta_completa}'\n   Fecha Actual: '{fecha_actual}'")
 
     prompt = PROMPT_SERIES.format(
         pregunta_original=pregunta_original,
         pregunta_completa=pregunta_completa,
-        fecha_actual=fecha_actual 
+        fecha_actual=fecha_actual
     )
     response = llm.invoke(prompt)
     try:
@@ -231,7 +231,8 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
         return {
             **state,
             "respuesta": "❌ No se pudo extraer la información necesaria para la predicción de series temporales.",
-            "fuente": "series_temporales"
+            "fuente": "series_temporales",
+            "grafico_base64": None # Ensure it's None on error
         }
 
     empresa = data.get("empresa", "BBVA").upper()
@@ -246,14 +247,16 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
 
     resultado = ejecutar_prediccion(empresa, lag, path_csv, modelos_dir)
     respuesta_real_modelo = resultado.get("respuesta", "No se pudo obtener la predicción real.")
-    
+    grafico_base64 = resultado.get("grafico_base64", None) # <--- GET THE BASE64 STRING HERE
+
     final_respuesta = respuesta_real_modelo if "No se pudo obtener" not in respuesta_real_modelo else respuesta_simulada
 
     return {
         **state,
         "respuesta": final_respuesta,
         "fuente": "series_temporales",
-        "empresa": empresa
+        "empresa": empresa,
+        "grafico_base64": grafico_base64 # <--- ADD IT TO THE STATE HERE
     }
 
 # ---------------------------------------------------------
