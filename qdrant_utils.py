@@ -10,14 +10,14 @@ torch.classes = None
 load_dotenv()
 
 # Conexión al servidor Qdrant
-client = QdrantClient(
+qdrant_client = QdrantClient(
     url=os.getenv("QDRANT_URL"),
     api_key=os.getenv("QDRANT_API_KEY"),
     timeout=60.0
 )
 
-modelo = SentenceTransformer("all-MiniLM-L6-v2")
-coleccion = "ibex35_vector_db"
+modelo = SentenceTransformer("infloat/e5-large-v2")
+coleccion = "resumenes_ibex35"
 
 # Función: Vectorizar un texto
 def vectorizar_texto(texto):
@@ -32,7 +32,7 @@ def buscar_en_qdrant(consulta, n_resultados=5):
     Busca los fragmentos más relevantes en la colección de Qdrant.
     """
     vector = vectorizar_texto(consulta)
-    resultados = client.search(
+    resultados = qdrant_client.search(
         collection_name=coleccion,
         query_vector=vector,
         limit=n_resultados,
@@ -53,7 +53,7 @@ def indexar_fragmentos(fragmentos):
             "vector": vectorizar_texto(fragmento),
             "payload": {"fragmento": fragmento}
         })
-    client.upsert(
+    qdrant_client.upsert(
         collection_name=coleccion,
         points=puntos
     )

@@ -54,23 +54,41 @@ class ChatbotState(TypedDict):
 # ---------------------------------------------------------
 
 
-def extract_json(text: str) -> Dict[str, Any]:
-    try:
-        # 1. Busca bloque JSON con triple backtick
-        json_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if json_match:
-            json_text = json_match.group(1)
-        else:
-            # 2. Busca el primer bloque {...}
-            matches = re.findall(r"\{.*?\}", text, re.DOTALL)
-            if not matches:
-                raise ValueError("No se encontró un bloque JSON en el texto.")
-            json_text = matches[0]
+def extract_json(text):
+    """
+    Attempts to extract a JSON object from a given text string.
+    It first looks for a JSON block enclosed in ```json...```.
+    If not found, it tries to find a standalone JSON object {}.
+    """
+    print(f"[DEBUG - extract_json] Attempting to extract JSON from text:\n{text[:500]}...") # Print first 500 chars
 
-        return json.loads(json_text)
-    except Exception as e:
-        raise ValueError(f"Error al extraer JSON: {e}\nTexto recibido:\n{text}")
+    # 1. Try to find a JSON block enclosed in ```json and ```
+    # re.DOTALL allows '.' to match newlines
+    match_code_block = re.search(r'```json\s*(\{.*\})\s*```', text, re.DOTALL)
+    if match_code_block:
+        try:
+            json_str = match_code_block.group(1)
+            print(f"[DEBUG - extract_json] Found JSON in code block. Attempting to decode: {json_str[:200]}...")
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            print(f"[ERROR - extract_json] Decoding JSON from code block failed: {e}")
+            print(f"[ERROR - extract_json] Problematic text: {json_str}")
+            # Fall through to try standalone match if code block failed to decode
+
+    match_standalone = re.search(r'(\{.*?\})', text, re.DOTALL) 
+    if match_standalone:
+        try:
+            json_str = match_standalone.group(1)
+            print(f"[DEBUG - extract_json] Found standalone JSON. Attempting to decode: {json_str[:200]}...")
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            print(f"[ERROR - extract_json] Decoding standalone JSON failed: {e}")
+            print(f"[ERROR - extract_json] Problematic text: {json_str}")
+            return None # If standalone fails, there's likely no valid JSON
     
+    print("[ERROR - extract_json] No valid JSON block found in the text.")
+    return None # No JSON block found at all
+
 
 def normalizar_fechas_relativas(fecha_inicio: Optional[str], fecha_fin: Optional[str]) -> tuple[Optional[str], Optional[str]]:
     hoy_dt = datetime.today()
@@ -293,8 +311,15 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
         # Por ahora, un ejemplo muy simplificado si buscas beneficios:
         
         # Primero, intenta identificar la empresa principal en la pregunta (si solo hay una)
-        empresa_preguntada = None
-        for empresa_ibex in ["bbva", "repsol", "iberdrola", "santander", "telefonica", "acciona"]: # Lista de empresas conocidas
+        for empresa_ibex in [
+            "bbva", "repsol", "iberdrola", "santander", "telefonica", "acciona",
+            "acciona energia", "acerinox", "acs", "aena", "amadeus", "arcelormittal",
+            "bankinter", "caixabank", "cellnex telecom", "enagas", "endesa",
+            "ferrovial", "fluidra", "grifols", "iag", "inditex", "indra",
+            "inm. colonial", "laboratorios farma (rovi)", "logista", "mapfre",
+            "merlin properties", "naturgy", "puig", "ree", "sabadell", "sacyr",
+            "solaria energia", "unicaja banco"
+        ]:
             if empresa_ibex in pregunta_completa.lower():
                 empresa_preguntada = empresa_ibex
                 break

@@ -8,15 +8,11 @@ A continuación, se te proporcionará un **historial de conversación** que cont
 - Analiza las preguntas anteriores, en especial la última, para entender si la pregunta actual es una continuación o una nueva pregunta.
 - Considera el contexto del historial de conversación para clasificar la pregunta actual correctamente.
 
-**Historial de Conversación (últimas 3 preguntas del usuario), presta especial atención a la última:**
+**Historial de Conversación (últimas 3 preguntas del usuario), presta especial atención a la última):**
 {historial_conversacion}
 ---
-    
-Tu tarea principal es clasificar la intención de la **pregunta del usuario**. Sin embargo, antes de clasificar, si la **pregunta del usuario** es ambigua, está incompleta o es una continuación clara de una pregunta anterior en el **Historial de Conversación**, debes **re-escribirla y completarla** para que sea una pregunta autocontenida y explícita. Esto es crucial para asegurar una clasificación precisa.
 
-**Paso 1: (Interno) Re-escribe la pregunta si es necesario.**
-Si la `pregunta del usuario` requiere contexto del `historial_conversacion` para ser comprendida completamente, crea una `pregunta_completa`. Por ejemplo, si el usuario dice "y en dos semanas?" o "y Acciona?" después de preguntar por Repsol, la `pregunta_completa` sería "¿cuánto va a cotizar Repsol en dos semanas?" o "¿cuánto va a cotizar Acciona?". Si la pregunta del usuario ya es completa, la `pregunta_completa` será idéntica a la `pregunta del usuario`.
-
+Tu tarea principal es clasificar la intención de la **pregunta del usuario**. Si la **pregunta del usuario** es ambigua, está incompleta o es una continuación clara de una pregunta anterior en el **Historial de Conversación**, debes **re-escribirla y completarla** para que sea una pregunta autocontenida y explícita. Esto es crucial para asegurar una clasificación precisa. Si la pregunta del usuario ya es completa, la `pregunta_completa` será idéntica a la `pregunta del usuario`.
 
 **Consideración especial para comparaciones:**
 - Si la `pregunta del usuario` pide una **comparación** (ej. "compara ambas", "¿cuál es mejor?") y **no especifica las empresas a comparar**, revisa el `historial_conversacion` y **asume que se refiere a las últimas dos o tres empresas mencionadas** en las preguntas previas del historial. Re-escribe la `pregunta_completa` para incluir explícitamente estas empresas **y la intención de comparar el tipo de información que se les preguntó anteriormente**. Por ejemplo, si se preguntó por precios, la `pregunta_completa` debe reflejar la comparación de precios.
