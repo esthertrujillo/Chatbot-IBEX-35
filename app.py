@@ -56,7 +56,7 @@ def main():
         st.image("utils/png.jpg")
 
     st.title("Chatbot Financiero del IBEX 35")
-    st.caption("Consulta precios, analiza documentos, pide predicciones o **compara empresas** del mercado español.")
+    st.caption("Consulta precios, analiza documentos o pide predicciones  del mercado español.")
 
     # --- 4. MENSAJE DE BIENVENIDA Y EJEMPLOS (si el chat está vacío) ---
     # Now this check is safe because historial_display is guaranteed to exist
