@@ -12,4 +12,4 @@ if df.empty:
 else:
     precio_medio = round(df["Close"].mean(), 2)
     print(f"✅ Precio medio de {ticker} entre {fecha_inicio} y {fecha_fin}: {precio_medio}€")
-    print(df.head())
+    print(df.head()) 
