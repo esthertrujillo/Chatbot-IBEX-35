@@ -19,7 +19,7 @@ def ejecutar_prediccion(empresa, lag, path_csv, modelos_dir):
             "respuesta": f"❌ No se encuentra el modelo para {empresa} con lag {lag}.",
             "rmse": None,
             "ultima_prediccion": None,
-            "grafico_base64": None # Added this
+            "grafico_base64": None 
         }
 
     with open(modelo_path, "rb") as f:
@@ -28,7 +28,7 @@ def ejecutar_prediccion(empresa, lag, path_csv, modelos_dir):
     df = cargar_datos(path_csv, empresa)
     df = crear_variables_lag_y_temporales(df, empresa=empresa)
 
-    X_train, y_train, X_test, y_test = dividir_train_test(df, fecha_test="2022-04-01") # Using a fixed test split
+    X_train, y_train, X_test, y_test = dividir_train_test(df, fecha_test="2022-04-01")
 
     if isinstance(modelo, SVR):
         X_train, X_test = escalar_datos(X_train, X_test)
@@ -44,5 +44,5 @@ def ejecutar_prediccion(empresa, lag, path_csv, modelos_dir):
         "respuesta": f"La Predicción para {empresa} a {lag} días: {ultima_pred:.2f} €",
         "rmse": rmse,
         "ultima_prediccion": ultima_pred,
-        "grafico_base64": plot_base64 # Include the base64 string
+        "grafico_base64": plot_base64 
     }

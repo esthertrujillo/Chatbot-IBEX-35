@@ -4,7 +4,7 @@ import uuid
 import os
 from dotenv import load_dotenv
 import torch
-torch.classes = None  # Prevención para ciertos errores en Windows
+torch.classes = None  
 
 # Cargar variables del entorno
 load_dotenv()
