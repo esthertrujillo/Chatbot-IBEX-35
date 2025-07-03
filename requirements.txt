@@ -1,23 +1,17 @@
-# Core LangChain & LangGraph
-langchain>=0.1.14
-langgraph>=0.0.30
+streamlit
+langgraph
+langchain-groq
+python-dotenv
+yfinance
+scikit-learn
+pandas
+numpy
+matplotlib
+seaborn
+joblib
+qdrant-client
+sentence-transformers
+xgboost
+lightgbm
 
-# Groq (modelo LLM)
-langchain-groq>=0.1.1
-
-# LLM utilities
-python-dotenv>=1.0.1
-
-# Procesamiento de datos financieros
-yfinance>=0.2.36
-pandas>=2.0.0
-
-# Otros
-openai>=1.0.0  # (necesario por dependencias cruzadas con LangChain)
-tqdm>=4.64.0   # (útil si usas descargas o loops largos)
-
-# Recomendado para depuración
-ipython>=8.0.0
-
-# Interfaz 
-streamlit>=1.30.0
+#pip install streamlit langgraph langchain-groq python-dotenv yfinance scikit-learn pandas numpy matplotlib seaborn joblib qdrant-client sentence-transformers xgboost lightgbm
