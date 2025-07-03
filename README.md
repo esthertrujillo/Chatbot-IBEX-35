@@ -35,32 +35,6 @@ Este proyecto combina tecnologías avanzadas en procesamiento de lenguaje natura
 - Bibliotecas como scikit-learn, pandas, NumPy, matplotlib, seaborn, joblib, XGBoost y LightGBM para la creación, entrenamiento y visualización de modelos de predicción.
 - python-dotenv para la gestión de claves y variables de entorno.
 
-## Estructura del Proyecto
-
-Chatbot-IBEX-35/
-├ .env
-├ README.md
-├ requirements.txt
-├ app.py
-├ main.py
-├ prompts.py
-├ cotizaciones.py
-├ qdrant_utils.py
-├ series_model.py
-├ data/
-│ └ IBEX35_cotizaciones_20_Limpio.csv
-├ modelos_por_empresa/
-│ ├ BBVA_lag1.pkl
-│ └ ...
-└ utils/
-├ init.py
-└ series_utils/
-├ preprocessing.py
-├ features.py
-├ scaling.py
-├ model_training.py
-└ visualization.py
-
 
 ## Arquitectura del Sistema
 
