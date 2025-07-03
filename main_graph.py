@@ -170,7 +170,6 @@ def clasificar_intencion(state: ChatbotState) -> ChatbotState:
         pregunta_completa = data.get("pregunta_completa", pregunta_original)
         justificacion = data.get("justificacion", "No se encontró justificación en la respuesta del LLM.")
         
-        # Eliminada 'comparacion_financiera' de categorías válidas
         categorias_validas = {"series_temporales", "documentos_financieros", "consulta_api"}
         if tipo not in categorias_validas:
             print(f"⚠️ Tipo de pregunta '{tipo}' no válido. Usando 'consulta_api' como fallback.")
@@ -260,7 +259,7 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
     }
 
 # ---------------------------------------------------------
-# 7. Nodo: Documentos financieros -> Qdrant - ¡ACTUALIZADO!
+# 7. Nodo: Documentos financieros -> Qdrant
 # ---------------------------------------------------------
 
 def consulta_qdrant(state: ChatbotState) -> ChatbotState:
@@ -332,7 +331,6 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
         if empresa_preguntada:
             # Ejemplo: Extraer beneficios si la pregunta es sobre "beneficios" y la respuesta RAG los contiene
             if "beneficios" in pregunta_completa.lower() or "ebitda" in pregunta_completa.lower():
-                # Puedes usar otro LLM call o regex aquí para extraer el número
                 # Por simplicidad, un regex muy básico:
                 match_beneficios = re.search(r"(\d[\d\.,]+)\s*(millones|miles de millones|€)", respuesta_final_text, re.IGNORECASE)
                 if match_beneficios:
@@ -381,7 +379,7 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
         }
 
 # ---------------------------------------------------------
-# 8. Nodo: Consulta API financiera - ¡ACTUALIZADO!
+# 8. Nodo: Consulta API financiera
 # ---------------------------------------------------------
 
 def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
@@ -444,7 +442,7 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     resultado = construir_respuesta_yfinance(empresa_normalizada, fecha_inicio, fecha_fin)
     print(f"[🌐 Nodo API] Resultado de la API financiera:\n{resultado.get('respuesta', 'N/A')}")
 
-    # --- NUEVO: Guardar el precio medio en el cache ---
+    # --- Guardar el precio medio en el cache ---
     precio_medio = resultado.get("precio_medio") # Asume que construir_respuesta_yfinance devuelve 'precio_medio'
     if precio_medio is not None and empresa_normalizada:
         if empresa_normalizada not in datos_empresa_cache:
@@ -482,7 +480,6 @@ def actualizar_historial_final(state: ChatbotState) -> ChatbotState:
         "respuesta_asistente": state.get("respuesta", "No se pudo generar una respuesta."),
         "fuente": state.get("fuente", "desconocida"),
         "timestamp": datetime.now().isoformat(),
-        # También guardar los datos estructurados que se procesaron en esta iteración
         "datos_generados": state.get("datos_recopilados", {}) 
     }
     

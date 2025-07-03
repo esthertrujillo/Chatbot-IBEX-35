@@ -21,11 +21,11 @@ def main():
     # También inicializa prompt_from_button si no existe para evitar KeyError on first run
     if "prompt_from_button" not in st.session_state:
         st.session_state.prompt_from_button = None
-    # Add this to initialize datos_empresa_cache as well, important for the backend state
+
     if "datos_empresa_cache" not in st.session_state:
         st.session_state.datos_empresa_cache = {}
 
-    # --- 2. BARRA LATERAL (SIDEBAR) ---
+    # --- 2. BARRA LATERAL ---
     with st.sidebar:
         st.title("ℹ️ Acerca del Chatbot")
         st.info(
