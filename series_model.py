@@ -4,11 +4,11 @@ import pickle
 import numpy as np
 from sklearn.svm import SVR
 from sklearn.metrics import mean_squared_error
-from preprocessing import cargar_datos
-from features import crear_variables_lag_y_temporales
-from model_training import dividir_train_test
-from scaling import escalar_datos
-from visualization import graficar_predicciones # Make sure this is the modified one
+from utils.series_utils.preprocessing import cargar_datos
+from utils.series_utils.features import crear_variables_lag_y_temporales
+from utils.series_utils.model_training import dividir_train_test
+from utils.series_utils.scaling import escalar_datos
+from utils.visualization import graficar_predicciones # Make sure this is the modified one
 
 def ejecutar_prediccion(empresa, lag, path_csv, modelos_dir):
     nombre_archivo = f"{empresa.replace(' ', '_').upper()}_lag{lag}.pkl"

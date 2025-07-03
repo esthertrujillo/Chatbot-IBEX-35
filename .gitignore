@@ -1,0 +1,4 @@
+.venv/etc/jupyter/nbconfig/notebook.d/pydeck.json
+/.venv
+/.venv/Lib/site-packages/altair
+/.venv/Lib/site-packages

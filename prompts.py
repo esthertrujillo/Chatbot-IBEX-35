@@ -172,30 +172,6 @@ Tu tarea es analizar la siguiente pregunta del usuario y extraer la siguiente in
 
 """
 
-PROMPT_API = """
-Eres un sistema especializado en proporcionar **datos históricos de precios de acciones** del IBEX 35 utilizando la API de **YFinance**.
-
-Tu tarea es consultar el **precio promedio** de la acción de una empresa del IBEX 35 para un **rango temporal** específico que el usuario solicite.
-
-Dado que esta es una consulta a la API de YFinance, simplemente responde con los **datos históricos reales** obtenidos. La API descargará los datos y devolverá el **precio promedio** de la acción en el período solicitado.
-
----
-
-**Pregunta del usuario**:
-{pregunta}
-
----
-💡 Detalles importantes:
-- [Empresa]: El nombre real de la empresa con la primera letra en mayúscula (por ejemplo, Iberdrola, Repsol).
-- [Precio]: Solo el número redondeado con dos decimales (por ejemplo, 9.22), sin `dtype`, `Ticker`, etc.
-- No incluyas ninguna otra información adicional, ni interpretaciones, ni metadatos técnicos.
-
----
-**Formato de respuesta:**
-quiero que respondas incluyendo tanto la fecha que solicita el usario (poniendo el año que corresponda, ten en cuenta que estamos en 2025) como el precio medio de la acción de la empresa solicitada. 
-""" 
-
-
 PROMPT_API_EXTRAER = """
 Extrae los siguientes datos de la pregunta sobre **precios de acciones del IBEX 35**:
 
