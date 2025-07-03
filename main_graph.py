@@ -243,7 +243,7 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
     print(f"[📊 SERIES] Respuesta simulada (del LLM): {respuesta_simulada}")
 
     modelos_dir = os.path.join(os.getcwd(), "modelos_por_empresa")
-    path_csv = os.path.join(os.getcwd(), "IBEX35_cotizaciones_20_Limpio.csv")
+    path_csv = os.path.join(os.getcwd(), "data/IBEX35_cotizaciones_20_Limpio.csv")
 
     resultado = ejecutar_prediccion(empresa, lag, path_csv, modelos_dir)
     respuesta_real_modelo = resultado.get("respuesta", "No se pudo obtener la predicción real.")
@@ -260,7 +260,7 @@ def analizar_series_temporales(state: ChatbotState) -> ChatbotState:
     }
 
 # ---------------------------------------------------------
-# 7. Nodo: Documentos financieros -> Qdrant - ¡ACTUALIZADO!
+# 7. Nodo: Documentos financieros 
 # ---------------------------------------------------------
 
 def consulta_qdrant(state: ChatbotState) -> ChatbotState:
@@ -381,7 +381,7 @@ def consulta_qdrant(state: ChatbotState) -> ChatbotState:
         }
 
 # ---------------------------------------------------------
-# 8. Nodo: Consulta API financiera - ¡ACTUALIZADO!
+# 8. Nodo: Consulta API financiera 
 # ---------------------------------------------------------
 
 def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
@@ -444,7 +444,7 @@ def consultar_api_financiera(state: ChatbotState) -> ChatbotState:
     resultado = construir_respuesta_yfinance(empresa_normalizada, fecha_inicio, fecha_fin)
     print(f"[🌐 Nodo API] Resultado de la API financiera:\n{resultado.get('respuesta', 'N/A')}")
 
-    # --- NUEVO: Guardar el precio medio en el cache ---
+    # --- Guardar el precio medio en el cache ---
     precio_medio = resultado.get("precio_medio") # Asume que construir_respuesta_yfinance devuelve 'precio_medio'
     if precio_medio is not None and empresa_normalizada:
         if empresa_normalizada not in datos_empresa_cache:
@@ -482,7 +482,6 @@ def actualizar_historial_final(state: ChatbotState) -> ChatbotState:
         "respuesta_asistente": state.get("respuesta", "No se pudo generar una respuesta."),
         "fuente": state.get("fuente", "desconocida"),
         "timestamp": datetime.now().isoformat(),
-        # También guardar los datos estructurados que se procesaron en esta iteración
         "datos_generados": state.get("datos_recopilados", {}) 
     }
     

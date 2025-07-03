@@ -15,7 +15,7 @@ EMPRESAS_IBEX = {
     "caixabank": "CABK.MC",
     "cellnex telecom": "CLNX.MC",
     "enagas": "ENG.MC",
-    "endesa": "ELE.MC",
+    "endesa": "ELE.MC", 
     "ferrovial": "FER.MC",
     "fluidra": "FDR.MC",
     "grifols": "GRF.MC",
@@ -29,8 +29,8 @@ EMPRESAS_IBEX = {
     "mapfre": "MAP.MC",
     "merlin properties": "MRL.MC",
     "naturgy": "NTGY.MC",
-    "puig": "PUIG.MC",  # Ticker reciente tras su salida a bolsa
-    "ree": "RED.MC",    # Red Eléctrica Española, ahora Redeia
+    "puig": "PUIG.MC",  
+    "ree": "RED.MC",    
     "repsol": "REP.MC",
     "sabadell": "SAB.MC",
     "sacyr": "SCYR.MC",
