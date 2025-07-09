@@ -43,6 +43,9 @@ Este proyecto combina tecnologías avanzadas en procesamiento de lenguaje natura
 
 El núcleo del sistema está definido mediante una arquitectura modular basada en grafos de estado, implementada con la librería LangGraph. Esta estructura permite una navegación no lineal entre nodos especializados, cada uno de los cuales representa una etapa en el procesamiento de la consulta del usuario.
 
+![Vista general del sistema](data/flujo.png) 
+
+
 Los nodos principales del flujo son:
 
 - **Input**  
