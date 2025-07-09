@@ -2,6 +2,9 @@
 
 Este proyecto implementa un chatbot financiero interactivo centrado en el mercado IBEX 35. La solución permite realizar consultas sobre cotizaciones históricas, predicciones de precios futuros y recuperación de información financiera relevante. La arquitectura del sistema está basada en agentes inteligentes orquestados mediante grafos de estado utilizando LangGraph, lo que proporciona flexibilidad y adaptabilidad en la conversación con el usuario. La interfaz ha sido desarrollada con Streamlit para ofrecer una experiencia intuitiva y accesible.
 
+![Vista general del sistema](data/chatbot_img.png) 
+
+
 ## Características Principales
 
 El sistema está diseñado para ofrecer funcionalidades clave que cubren diferentes necesidades de análisis financiero:
